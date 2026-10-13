@@ -1786,3 +1786,286 @@ body {
     justify-content: center;
   }
 }
+
+/* ==========================================================================
+   Locked & Private Posts Extraction Drawer (Black & Crimson Liquid Glass)
+   ========================================================================== */
+.locked-post-panel {
+  margin-top: 18px;
+  background: rgba(14, 4, 8, 0.68);
+  border: 1px solid rgba(225, 29, 72, 0.22);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.12),
+              0 8px 24px -6px rgba(0, 0, 0, 0.6);
+  backdrop-filter: var(--glass-blur-sm);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.locked-post-panel:hover {
+  border-color: rgba(225, 29, 72, 0.38);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2),
+              0 12px 30px -4px rgba(225, 29, 72, 0.12);
+}
+
+.locked-panel-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  transition: var(--transition);
+}
+
+.locked-panel-toggle:hover {
+  background: rgba(225, 29, 72, 0.08);
+}
+
+.locked-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+
+.locked-badge-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: rgba(225, 29, 72, 0.16);
+  border: 1px solid rgba(225, 29, 72, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--crimson-light);
+  flex-shrink: 0;
+  box-shadow: 0 0 14px rgba(225, 29, 72, 0.2);
+}
+
+.locked-toggle-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.locked-toggle-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.locked-toggle-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.locked-toggle-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.session-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: var(--transition);
+}
+
+.session-status-badge.public {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+}
+
+.session-status-badge.authenticated {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+.session-status-badge .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.session-status-badge.authenticated .status-dot {
+  box-shadow: 0 0 8px #34d399;
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+
+.chevron-icon {
+  color: var(--text-muted);
+  transition: transform 0.25s ease;
+}
+
+.locked-panel-toggle[aria-expanded="true"] .chevron-icon {
+  transform: rotate(180deg);
+  color: var(--crimson-light);
+}
+
+.locked-panel-content {
+  border-top: 1px solid rgba(225, 29, 72, 0.15);
+  background: rgba(6, 2, 4, 0.7);
+  animation: fadeInDown 0.25s ease;
+}
+
+.locked-panel-inner {
+  padding: 18px 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.locked-helper-note {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  background: rgba(225, 29, 72, 0.08);
+  border: 1px solid rgba(225, 29, 72, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+}
+
+.locked-helper-note strong {
+  color: var(--crimson-light);
+}
+
+.locked-helper-note code {
+  background: rgba(0, 0, 0, 0.4);
+  color: #fca5a5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.cookie-input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .cookie-input-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cookie-field-group,
+.cookie-full-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cookie-field-group label,
+.cookie-full-wrap label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.cookie-field-group input,
+.cookie-full-wrap textarea {
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  transition: var(--transition);
+  outline: none;
+}
+
+.cookie-field-group input:focus,
+.cookie-full-wrap textarea:focus {
+  border-color: var(--crimson-primary);
+  box-shadow: 0 0 15px rgba(225, 29, 72, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+.cookie-full-wrap textarea {
+  resize: vertical;
+  min-height: 52px;
+}
+
+.locked-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 6px;
+}
+
+.locked-status-msg {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.locked-btns {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-locked-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: var(--transition);
+}
+
+.btn-locked-action.btn-save {
+  background: linear-gradient(135deg, var(--crimson-primary), var(--crimson-deep));
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
+}
+
+.btn-locked-action.btn-save:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(225, 29, 72, 0.5);
+}
+
+.btn-locked-action.btn-clear-session {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+}
+
+.btn-locked-action.btn-clear-session:hover {
+  background: rgba(225, 29, 72, 0.15);
+  border-color: rgba(225, 29, 72, 0.3);
+  color: #fca5a5;
+}
+
+/* Locked Post Unlocked Badge in Results */
+.stat-badge.lock-badge {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+}

@@ -16,6 +16,7 @@ Supports single posts as well as **Batch Extraction** for full story/novel serie
 - 📖 **Compile Novel to .TXT**: One-click download of all extracted parts compiled into a single clean story file (`Compiled_Novel.txt`).
 - 🖼️ **High-Definition Images**: Finds all `scontent` CDN photo URLs, multi-image albums, and cover photos.
 - 🎬 **Video & Reel Streams**: Extracts playable MP4 streams (HD 1080p, 720p, SD 360p) with duration and format info.
+- 🔓 **Extract Locked & Private Posts**: Multi-strategy fallback (Mobile UA, mbasic engine, oEmbed API, and Web Archives). For closed groups or friends-only profiles, optionally configure session cookies (`c_user` + `xs`) to extract complete text, original photos, and video assets.
 - 📦 **One-Click .ZIP Bundle**: Packages post text (`.txt`), metadata (`metadata.json`), and all images packed neatly into a single ZIP file.
 - 🛡️ **CDN Proxy & Referer Shield**: Direct in-browser viewing and downloading without Facebook's cross-origin 403 blocks.
 - 💻 **Dual Interfaces**:

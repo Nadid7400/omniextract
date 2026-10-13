@@ -186,6 +186,81 @@
               </button>
             </div>
           </div>
+
+          <!-- Locked & Private Posts Extraction Drawer -->
+          <div class="locked-post-panel" id="locked-post-panel">
+            <button type="button" class="locked-panel-toggle" id="btn-toggle-locked-panel" aria-expanded="false">
+              <div class="locked-toggle-left">
+                <div class="locked-badge-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </div>
+                <div class="locked-toggle-text">
+                  <span class="locked-toggle-title">Extract Locked &amp; Private Posts</span>
+                  <span class="locked-toggle-desc">Extract texts, high-res photos &amp; videos from private/locked profiles or groups</span>
+                </div>
+              </div>
+              <div class="locked-toggle-right">
+                <span class="session-status-badge public" id="cookie-status-badge">
+                  <span class="status-dot"></span>
+                  <span class="status-label">Public Mode</span>
+                </span>
+                <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </button>
+            
+            <div class="locked-panel-content hidden" id="locked-panel-content">
+              <div class="locked-panel-inner">
+                <p class="locked-helper-note">
+                  <strong>🔒 How Locked Content Extraction Works:</strong>
+                  Our multi-strategy engine automatically tries 5 bypass fallbacks (Mobile UA, mbasic HTML, oEmbed API, and Web Archives). For posts strictly restricted to friends, groups, or login sessions, paste your session cookies below to extract complete text, original photos, and video assets.
+                </p>
+                
+                <div class="cookie-input-grid">
+                  <div class="cookie-field-group">
+                    <label for="input-c-user">c_user (Facebook User ID)</label>
+                    <input type="text" id="input-c-user" placeholder="e.g. 100084592019482" autocomplete="off" spellcheck="false">
+                  </div>
+                  <div class="cookie-field-group">
+                    <label for="input-xs">xs (Session Token)</label>
+                    <input type="password" id="input-xs" placeholder="e.g. 24%3AbA12... (session key)" autocomplete="off" spellcheck="false">
+                  </div>
+                </div>
+
+                <div class="cookie-full-wrap">
+                  <label for="input-cookie-full">Or Paste Full Cookie String / Netscape Header</label>
+                  <textarea id="input-cookie-full" rows="2" placeholder="c_user=...; xs=...; datr=... or Netscape tab-separated lines" spellcheck="false"></textarea>
+                </div>
+
+                <div class="locked-actions-bar">
+                  <div class="locked-status-msg" id="cookie-status-msg">
+                    <span class="status-text">Status: Public Mode (No session cookies stored)</span>
+                  </div>
+                  <div class="locked-btns">
+                    <button type="button" id="btn-save-cookies" class="btn-locked-action btn-save">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                      </svg>
+                      <span>Save Session</span>
+                    </button>
+                    <button type="button" id="btn-clear-cookies" class="btn-locked-action btn-clear-session hidden">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                      <span>Clear Session</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -208,6 +283,7 @@
                 <span id="badge-type" class="type-badge">Post</span>
                 <span id="badge-images-count" class="stat-badge">0 Images</span>
                 <span id="badge-videos-count" class="stat-badge">0 Videos</span>
+                <span id="badge-lock-status" class="stat-badge lock-badge hidden">🔓 Locked Post Unlocked</span>
               </div>
             </div>
           </div>

@@ -43,6 +43,8 @@ def main():
     parser.add_argument("url", nargs="?", default=None, help="Facebook link (post, reel, photo, video, share link)")
     parser.add_argument("--batch-file", "-bf", help="Path to text file containing multiple Facebook links")
     parser.add_argument("--batch-text", "-bt", help="Raw string/list containing multiple Facebook links")
+    parser.add_argument("--cookies", help="Facebook session cookies (e.g. 'c_user=...; xs=...') to extract locked/private posts")
+    parser.add_argument("--cookie-file", help="Path to Netscape cookies.txt or JSON file for authenticated extraction")
     parser.add_argument("--compile-txt", "-c", help="Filepath to compile all extracted chapters/text into a single .txt file")
     parser.add_argument("--json", action="store_true", help="Print raw extraction result as JSON")
     parser.add_argument("--download", "-d", action="store_true", help="Automatically download media to output folder")
@@ -50,6 +52,15 @@ def main():
 
     args = parser.parse_args()
     extractor = FacebookExtractor()
+
+    # Configure session cookies if provided
+    if args.cookie_file and os.path.exists(args.cookie_file):
+        with open(args.cookie_file, "r", encoding="utf-8") as cf:
+            extractor.set_cookies(cf.read())
+            print("[*] Loaded authenticated cookies from file.")
+    elif args.cookies:
+        extractor.set_cookies(args.cookies)
+        print("[*] Loaded authenticated session cookies.")
 
     # BATCH EXTRACTION MODE
     raw_batch_content = ""

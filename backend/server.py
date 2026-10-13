@@ -18,12 +18,12 @@ from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from backend.fb_extractor import FacebookExtractor, HEADERS, extract_all_facebook_urls, normalize_fb_url
+from backend.fb_extractor import FacebookExtractor, HEADERS, extract_all_facebook_urls, normalize_fb_url, parse_fb_cookies
 
 app = FastAPI(
     title="OmniExtract Facebook",
-    description="Extract post texts, high-res images, and videos from public Facebook links without login.",
-    version="1.1.0"
+    description="Extract post texts, high-res images, and videos from public and locked Facebook links.",
+    version="1.2.0"
 )
 
 # CORS middleware
@@ -37,12 +37,19 @@ app.add_middleware(
 
 extractor = FacebookExtractor()
 
+class CookieRequest(BaseModel):
+    cookies: Optional[str] = ""
+    c_user: Optional[str] = ""
+    xs: Optional[str] = ""
+
 class ExtractRequest(BaseModel):
     url: str
+    cookies: Optional[str] = None
 
 class BatchExtractRequest(BaseModel):
     raw_text: Optional[str] = ""
     urls: Optional[List[str]] = []
+    cookies: Optional[str] = None
 
 class ZipDownloadRequest(BaseModel):
     title: Optional[str] = "facebook_post"
@@ -109,6 +116,37 @@ async def get_network_info():
         "is_public": public_url is not None
     }
 
+@app.get("/api/cookies")
+async def get_cookie_status():
+    """Check current status of authenticated session cookies."""
+    return extractor.get_cookie_status()
+
+@app.post("/api/cookies")
+async def set_cookies(req: CookieRequest):
+    """Set Facebook authentication cookies to extract locked/private posts."""
+    cookie_payload = ""
+    if req.c_user and req.xs:
+        cookie_payload = f"c_user={req.c_user.strip()}; xs={req.xs.strip()}"
+    elif req.cookies:
+        cookie_payload = req.cookies.strip()
+    
+    if not cookie_payload:
+        raise HTTPException(status_code=400, detail="No cookies provided")
+    
+    extractor.set_cookies(cookie_payload)
+    status = extractor.get_cookie_status()
+    return {
+        "success": True,
+        "message": "Cookies saved successfully" if status["has_cookies"] else "Could not parse cookies",
+        "status": status
+    }
+
+@app.delete("/api/cookies")
+async def clear_cookies():
+    """Clear stored authentication cookies."""
+    extractor.clear_cookies()
+    return {"success": True, "message": "Cookies cleared successfully"}
+
 @app.post("/api/extract")
 async def extract_facebook(req: ExtractRequest):
     if not req.url or not req.url.strip():
@@ -116,19 +154,23 @@ async def extract_facebook(req: ExtractRequest):
     
     clean_url = normalize_fb_url(req.url.strip())
     try:
-        data = extractor.extract(clean_url)
+        data = extractor.extract(clean_url, cookies=req.cookies)
         if not data.get("success"):
             return JSONResponse(status_code=400, content=sanitize_for_json(data))
         
         # Inject proxy and download endpoints for frontend convenience
         for idx, img in enumerate(data.get("images", [])):
-            encoded_img = urllib.parse.quote(img["url"], safe="")
-            img["proxy_url"] = f"/api/proxy?url={encoded_img}"
-            img["download_url"] = f"/api/download?url={encoded_img}&filename=fb_image_{idx+1}.jpg"
+            img_url = img["url"] if isinstance(img, dict) else img
+            encoded_img = urllib.parse.quote(img_url, safe="")
+            if isinstance(img, dict):
+                img["proxy_url"] = f"/api/proxy?url={encoded_img}"
+                img["download_url"] = f"/api/download?url={encoded_img}&filename=fb_image_{idx+1}.jpg"
 
         for idx, vid in enumerate(data.get("videos", [])):
-            encoded_vid = urllib.parse.quote(vid["url"], safe="")
-            vid["download_url"] = f"/api/download?url={encoded_vid}&filename=fb_video_{idx+1}.mp4"
+            vid_url = vid["url"] if isinstance(vid, dict) else vid
+            encoded_vid = urllib.parse.quote(vid_url, safe="")
+            if isinstance(vid, dict):
+                vid["download_url"] = f"/api/download?url={encoded_vid}&filename=fb_video_{idx+1}.mp4"
 
         clean_data = sanitize_for_json(data)
         return clean_data
@@ -159,13 +201,20 @@ async def extract_batch(req: BatchExtractRequest):
     results = []
     for idx, u in enumerate(urls_to_process, 1):
         try:
-            item_data = extractor.extract(u)
+            item_data = extractor.extract(u, cookies=req.cookies)
             item_data["index"] = idx
             # Inject proxy and download URLs
             for i_idx, img in enumerate(item_data.get("images", [])):
-                encoded_img = urllib.parse.quote(img["url"], safe="")
-                img["proxy_url"] = f"/api/proxy?url={encoded_img}"
-                img["download_url"] = f"/api/download?url={encoded_img}&filename=chapter_{idx:02d}_img_{i_idx+1}.jpg"
+                img_url = img["url"] if isinstance(img, dict) else img
+                encoded_img = urllib.parse.quote(img_url, safe="")
+                if isinstance(img, dict):
+                    img["proxy_url"] = f"/api/proxy?url={encoded_img}"
+                    img["download_url"] = f"/api/download?url={encoded_img}&filename=chapter_{idx:02d}_img_{i_idx+1}.jpg"
+            for v_idx, vid in enumerate(item_data.get("videos", [])):
+                vid_url = vid["url"] if isinstance(vid, dict) else vid
+                encoded_vid = urllib.parse.quote(vid_url, safe="")
+                if isinstance(vid, dict):
+                    vid["download_url"] = f"/api/download?url={encoded_vid}&filename=chapter_{idx:02d}_vid_{v_idx+1}.mp4"
             results.append(item_data)
         except Exception as e:
             results.append({

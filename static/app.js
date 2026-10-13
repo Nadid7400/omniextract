@@ -267,7 +267,29 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 100);
 
     } catch (err) {
-      showAlert(err.message || 'An error occurred during extraction. Make sure the Facebook link is public.', 'error');
+      const errMsg = err.message || 'An error occurred during extraction. Make sure the Facebook link is public.';
+      if (errMsg.toLowerCase().includes('locked') || errMsg.toLowerCase().includes('login wall') || errMsg.toLowerCase().includes('restrict')) {
+        showAlert(
+          `🔒 <strong>Restricted / Locked Facebook Post Detected:</strong> This post is restricted behind a login or privacy wall.<br/>` +
+          `<button type="button" id="alert-unlock-action-btn" style="margin-top: 8px; background: rgba(225, 29, 72, 0.25); border: 1px solid rgba(225, 29, 72, 0.5); color: #fda4af; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem;">` +
+          `🔓 Open Locked Posts Drawer &amp; Configure Session Cookies &rarr;</button>`,
+          'warning'
+        );
+        const unlockBtn = document.getElementById('alert-unlock-action-btn');
+        if (unlockBtn) {
+          unlockBtn.addEventListener('click', () => {
+            const panel = document.getElementById('locked-post-panel');
+            const toggle = document.getElementById('btn-toggle-locked-panel');
+            const content = document.getElementById('locked-panel-content');
+            if (content && content.classList.contains('hidden')) {
+              toggle.click();
+            }
+            if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
+        }
+      } else {
+        showAlert(errMsg, 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -337,7 +359,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function showAlert(msg, type = 'error') {
     alertBanner.className = `alert-banner ${type}`;
-    alertBanner.textContent = msg;
+    if (typeof msg === 'string' && (msg.includes('<') || msg.includes('&'))) {
+      alertBanner.innerHTML = msg;
+    } else {
+      alertBanner.textContent = msg;
+    }
     alertBanner.classList.remove('hidden');
   }
 
@@ -372,6 +398,23 @@ document.addEventListener('DOMContentLoaded', () => {
     badgeVideos.textContent = `${totalVideos} ${totalVideos === 1 ? 'Video' : 'Videos'}`;
     tabImgCounter.textContent = totalImages;
     tabVidCounter.textContent = totalVideos;
+
+    // Locked post unlock status badge
+    const badgeLock = document.getElementById('badge-lock-status');
+    if (badgeLock) {
+      if (data.lock_bypass_used || data.is_locked) {
+        badgeLock.classList.remove('hidden');
+        const stratMap = {
+          'authenticated_session': '🔓 Unlocked (Auth Session)',
+          'mbasic': '🔓 Unlocked (mbasic Engine)',
+          'archive_cache': '🔓 Unlocked (Archive)',
+          'mobile_ua': '🔓 Unlocked (Mobile Engine)'
+        };
+        badgeLock.textContent = stratMap[data.lock_bypass_used] || '🔓 Locked Post Unlocked';
+      } else {
+        badgeLock.classList.add('hidden');
+      }
+    }
 
     renderTextTab(data.text || '');
     renderImagesTab(data.images || []);
@@ -961,6 +1004,119 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // ==========================================================================
+  // Locked & Private Content Session Drawer Logic
+  // ==========================================================================
+  const btnToggleLockedPanel = document.getElementById('btn-toggle-locked-panel');
+  const lockedPanelContent = document.getElementById('locked-panel-content');
+  const inputCUser = document.getElementById('input-c-user');
+  const inputXs = document.getElementById('input-xs');
+  const inputCookieFull = document.getElementById('input-cookie-full');
+  const cookieStatusBadge = document.getElementById('cookie-status-badge');
+  const cookieStatusMsg = document.getElementById('cookie-status-msg');
+  const btnSaveCookies = document.getElementById('btn-save-cookies');
+  const btnClearCookies = document.getElementById('btn-clear-cookies');
+
+  if (btnToggleLockedPanel && lockedPanelContent) {
+    btnToggleLockedPanel.addEventListener('click', () => {
+      const isExpanded = btnToggleLockedPanel.getAttribute('aria-expanded') === 'true';
+      btnToggleLockedPanel.setAttribute('aria-expanded', !isExpanded);
+      lockedPanelContent.classList.toggle('hidden');
+    });
+  }
+
+  async function checkCookieStatus() {
+    try {
+      const resp = await fetch('/api/cookies');
+      if (resp.ok) {
+        const data = await resp.json();
+        updateCookieUI(data);
+      }
+    } catch {
+      // offline or error
+    }
+  }
+
+  function updateCookieUI(status) {
+    if (!cookieStatusBadge || !cookieStatusMsg) return;
+    if (status && status.has_cookies) {
+      cookieStatusBadge.className = 'session-status-badge authenticated';
+      const label = cookieStatusBadge.querySelector('.status-label');
+      if (label) label.textContent = status.user_id ? `Active (${status.user_id})` : 'Authenticated';
+      
+      cookieStatusMsg.innerHTML = `<span style="color: #34d399; font-weight: 600;">✓ Authenticated session active ${status.user_id ? `(User ${status.user_id})` : ''} &bull; Ready to extract locked posts</span>`;
+      if (btnClearCookies) btnClearCookies.classList.remove('hidden');
+    } else {
+      cookieStatusBadge.className = 'session-status-badge public';
+      const label = cookieStatusBadge.querySelector('.status-label');
+      if (label) label.textContent = 'Public Mode';
+      
+      cookieStatusMsg.innerHTML = `<span class="status-text">Status: Public Mode (No session cookies stored)</span>`;
+      if (btnClearCookies) btnClearCookies.classList.add('hidden');
+    }
+  }
+
+  if (btnSaveCookies) {
+    btnSaveCookies.addEventListener('click', async () => {
+      const cUserVal = inputCUser ? inputCUser.value.trim() : '';
+      const xsVal = inputXs ? inputXs.value.trim() : '';
+      const fullVal = inputCookieFull ? inputCookieFull.value.trim() : '';
+
+      if (!cUserVal && !xsVal && !fullVal) {
+        showToast('Please enter c_user & xs or paste cookie string', 'warning');
+        return;
+      }
+
+      try {
+        btnSaveCookies.disabled = true;
+        const resp = await fetch('/api/cookies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            c_user: cUserVal,
+            xs: xsVal,
+            cookies: fullVal
+          })
+        });
+
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+          updateCookieUI(data.status);
+          showToast('Session cookies saved! Locked extraction enabled.');
+        } else {
+          showToast(data.detail || 'Could not parse cookies. Ensure format is valid.', 'warning');
+        }
+      } catch (err) {
+        showToast('Failed to save session cookies: ' + err.message, 'warning');
+      } finally {
+        btnSaveCookies.disabled = false;
+      }
+    });
+  }
+
+  if (btnClearCookies) {
+    btnClearCookies.addEventListener('click', async () => {
+      try {
+        btnClearCookies.disabled = true;
+        const resp = await fetch('/api/cookies', { method: 'DELETE' });
+        if (resp.ok) {
+          if (inputCUser) inputCUser.value = '';
+          if (inputXs) inputXs.value = '';
+          if (inputCookieFull) inputCookieFull.value = '';
+          updateCookieUI({ has_cookies: false });
+          showToast('Session cookies cleared. Reverted to Public Mode.');
+        }
+      } catch (err) {
+        showToast('Failed to clear session: ' + err.message, 'warning');
+      } finally {
+        btnClearCookies.disabled = false;
+      }
+    });
+  }
+
+  // Check cookie status on boot
+  checkCookieStatus();
 
   // Load network info on initial boot
   loadNetworkInfo();
