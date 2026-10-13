@@ -134,6 +134,8 @@ def main():
     print("\n" + "="*50)
     print(f"Type:       {data.get('type', 'post').upper()}")
     print(f"Author:     {data.get('author', {}).get('name') or 'Unknown'}")
+    if data.get("uid") or (data.get("author") and data["author"].get("uid")):
+        print(f"UID:        {data.get('uid') or data['author'].get('uid')}")
     print(f"Title:      {data.get('title') or 'N/A'}")
     print(f"Resolved:   {data.get('url')}")
     print("="*50)

@@ -224,6 +224,60 @@ def is_profile_url(url: str) -> bool:
     return False
 
 
+def extract_fb_uid(url: str, html_text: str = "", soup: Optional[Any] = None) -> Optional[str]:
+    """
+    Extract numeric Facebook User ID (UID) from URL, meta tags, or SSR payloads.
+    Supports user profiles, locked profiles, pages, and vanity handles.
+    """
+    # 1. Direct query/path in URL: profile.php?id=123, /people/Name/123, /p/Name/123
+    try:
+        id_m = re.search(r'[?&]id=(\d+)', url) or re.search(r'/(?:people|p)/[^/?#]+/(\d+)', url)
+        if id_m:
+            return id_m.group(1)
+    except Exception:
+        pass
+
+    if not html_text:
+        return None
+
+    # 2. Meta tags (al:android:url, al:ios:url) - standard FB mobile deep links contain fb://profile/<UID> or fb://page/<UID>
+    if soup:
+        for tag in soup.find_all('meta'):
+            prop = tag.get('property', '') or tag.get('name', '')
+            content = tag.get('content', '')
+            if prop in ('al:android:url', 'al:ios:url') and content:
+                m = re.search(r'fb://(?:profile|page)/(\d+)', content)
+                if m:
+                    return m.group(1)
+    else:
+        applink_m = re.findall(r'fb://(?:profile|page)/(\d+)', html_text)
+        if applink_m:
+            return applink_m[0]
+
+    # 3. Relay / SSR GraphQL JSON payloads
+    ssr_patterns = [
+        r'fb://(?:profile|page)/(\d+)',
+        r'"userID":"(\d+)"',
+        r'"user_id":"(\d+)"',
+        r'"entity_id":"(\d+)"',
+        r'"pageID":"(\d+)"',
+        r'"targetID":"(\d+)"',
+        r'"profile_id":"(\d+)"',
+        r'"owning_profile":\{"id":"(\d+)"',
+        r'"actor":\{"id":"(\d+)"',
+        r'profile_id=(\d+)',
+        r'"delegate_page":\{"id":"(\d+)"',
+    ]
+    for pat in ssr_patterns:
+        m = re.search(pat, html_text)
+        if m:
+            val = m.group(1)
+            if val and len(val) >= 1:
+                return val
+
+    return None
+
+
 def parse_fb_cookies(raw: Any) -> Dict[str, str]:
     """
     Parse cookies from multiple formats:
@@ -343,12 +397,14 @@ class FacebookExtractor:
             "success": True,
             "url": resolved_url,
             "original_url": initial_url,
+            "uid": None,
             "title": "",
             "text": "",
             "author": {
                 "name": "",
                 "url": "",
-                "avatar": ""
+                "avatar": "",
+                "uid": None
             },
             "type": "profile" if is_profile else "post", # post, photo, video, reel, album, profile, locked_profile
             "images": [],
@@ -549,11 +605,21 @@ class FacebookExtractor:
     def _extract_profile(self, url: str, html_text: str, result: Dict[str, Any]) -> bool:
         """
         Extract assets and metadata from a Facebook Profile.
-        Handles both public profiles and locked profiles (unlocking high-res avatar and cover photo).
+        Handles both public profiles and locked profiles:
+        - Numeric Facebook UID (User ID)
+        - High-resolution profile avatar (unlocked)
+        - High-resolution cover photo
+        - All embedded profile/featured/timeline pictures
         """
         soup = BeautifulSoup(html_text, 'html.parser')
         
-        # 1. Profile Name
+        # 1. Numeric Facebook UID
+        uid = extract_fb_uid(url, html_text, soup)
+        if uid:
+            result["uid"] = uid
+            result["author"]["uid"] = uid
+
+        # 2. Profile Name
         name = ""
         og_title = ""
         for tag in soup.find_all('meta'):
@@ -579,7 +645,7 @@ class FacebookExtractor:
             result["author"]["name"] = name
             result["author"]["url"] = url
 
-        # 2. Check if the profile is locked
+        # 3. Check if the profile is locked
         is_locked = self._detect_locked_profile(html_text)
         result["is_locked"] = is_locked
         result["is_locked_profile"] = is_locked
@@ -589,7 +655,7 @@ class FacebookExtractor:
         else:
             result["type"] = "profile"
 
-        # 3. Bio / About / Intro
+        # 4. Bio / About / Intro
         bio = ""
         for tag in soup.find_all('meta'):
             prop = tag.get('property', '') or tag.get('name', '')
@@ -603,7 +669,7 @@ class FacebookExtractor:
             if bio_m:
                 bio = clean_text_content(bio_m[0])
         
-        # 4. Extract High-Resolution Profile Picture (Unlocked)
+        # 5. Extract High-Resolution Profile Picture (Unlocked)
         avatar_url = ""
         for tag in soup.find_all('meta'):
             prop = tag.get('property', '') or tag.get('name', '')
@@ -614,9 +680,17 @@ class FacebookExtractor:
                     break
 
         if not avatar_url:
-            ssr_avatars = re.findall(r'"profile_picture":\{.*?"uri":"([^"]+)"', html_text)
-            if ssr_avatars:
-                avatar_url = clean_cdn_url(ssr_avatars[0])
+            avatar_patterns = [
+                r'"profile_picture":\{.*?"uri":"([^"]+)"',
+                r'"profilePicture":\{.*?"uri":"([^"]+)"',
+                r'"profile_photo":\{.*?"url":"([^"]+)"',
+                r'"actor":\{.*?"profile_picture":\{"uri":"([^"]+)"',
+            ]
+            for pat in avatar_patterns:
+                ssr_avatars = re.findall(pat, html_text)
+                if ssr_avatars:
+                    avatar_url = clean_cdn_url(ssr_avatars[0])
+                    break
 
         if avatar_url:
             result["author"]["avatar"] = avatar_url
@@ -626,18 +700,41 @@ class FacebookExtractor:
                 "label": "Profile Picture (High-Res / Unlocked)" if is_locked else "Profile Picture (High-Res)"
             })
 
-        # 5. Extract Cover Photo
-        cover_matches = re.findall(r'"cover_photo":\{.*?"uri":"([^"]+)"', html_text) or re.findall(r'"coverPhoto":\{.*?"uri":"([^"]+)"', html_text)
-        if cover_matches:
-            cover_url = clean_cdn_url(cover_matches[0])
-            if cover_url and is_valid_fb_image(cover_url) and cover_url != avatar_url:
-                result["images"].append({
-                    "url": cover_url,
-                    "type": "cover_photo",
-                    "label": "Cover Photo (High-Res)"
-                })
+        # 6. Extract High-Resolution Cover Photo
+        cover_patterns = [
+            r'"cover_photo":\{.*?"uri":"([^"]+)"',
+            r'"coverPhoto":\{.*?"uri":"([^"]+)"',
+            r'"cover_photo":\{.*?"image":\{.*?"uri":"([^"]+)"',
+            r'"cover_photo_id":\d+.*?"uri":"([^"]+)"',
+            r'"profile_cover":\{.*?"uri":"([^"]+)"',
+            r'"focus":\{"x":\d+.*?"image":\{"uri":"([^"]+)"',
+        ]
+        for pat in cover_patterns:
+            cover_matches = re.findall(pat, html_text)
+            if cover_matches:
+                cover_url = clean_cdn_url(cover_matches[0])
+                if cover_url and is_valid_fb_image(cover_url) and cover_url != avatar_url:
+                    if not any(i["url"] == cover_url for i in result["images"]):
+                        result["images"].append({
+                            "url": cover_url,
+                            "type": "cover_photo",
+                            "label": "Cover Photo (High-Res)"
+                        })
+                        break
 
-        # 6. If Authenticated Cookies Provided, Scrape Timeline via mbasic
+        # 7. Extract All Available Photos / Pictures in Profile (Featured, Recent, Timeline, Badges)
+        scontent_matches = re.findall(r'https://scontent[^\s"\'<>\\]+(?:\\/[^\s"\'<>\\]+)*', html_text)
+        for match in scontent_matches:
+            c_url = clean_cdn_url(match)
+            if is_valid_fb_image(c_url):
+                if not any(item['url'] == c_url for item in result["images"]):
+                    result["images"].append({
+                        "url": c_url,
+                        "type": "profile_media",
+                        "label": f"Profile Photo #{len(result['images']) + 1}"
+                    })
+
+        # 8. If Authenticated Cookies Provided, Scrape Timeline via mbasic
         if self._auth_cookies:
             try:
                 mbasic_data = self._scrape_mbasic(url)
@@ -655,10 +752,12 @@ class FacebookExtractor:
             except Exception:
                 pass
 
-        # 7. Formulate Profile Text Summary
+        # 9. Formulate Profile Text Summary
         text_lines = []
         if name:
             text_lines.append(f"Name: {name}")
+        if uid:
+            text_lines.append(f"Facebook UID: {uid}")
         if is_locked:
             text_lines.append("Profile Privacy: 🔒 Profile Lock Enabled (Locked Facebook Profile)")
         else:
@@ -981,6 +1080,13 @@ class FacebookExtractor:
             if len(parts) > 1 and parts[0].strip():
                 result["author"]["name"] = parts[0].strip()
 
+        # Extract UID if available from post
+        if not result.get("uid"):
+            uid = extract_fb_uid(result["url"], html_text, soup)
+            if uid:
+                result["uid"] = uid
+                result["author"]["uid"] = uid
+
         # Cover/Primary Image from OpenGraph
         if "og:image" in og:
             og_img = clean_cdn_url(og["og:image"])
@@ -1173,11 +1279,15 @@ class FacebookExtractor:
     def _polish_results(self, result: Dict[str, Any]):
         """Deduplicate images, set clean labels, and determine overall content type."""
         seen_img_bases = set()
+        seen_img_ids = set()
         unique_images = []
         for img in result["images"]:
             u = img["url"]
             base = u.split("?")[0] if "?" in u else u
-            if base not in seen_img_bases:
+            fn_match = re.search(r'([0-9]+_[0-9]+_[0-9]+)', base)
+            fn_id = fn_match.group(1) if fn_match else base
+            if fn_id not in seen_img_ids and base not in seen_img_bases:
+                seen_img_ids.add(fn_id)
                 seen_img_bases.add(base)
                 unique_images.append(img)
         result["images"] = unique_images

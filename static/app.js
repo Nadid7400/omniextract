@@ -405,6 +405,27 @@ document.addEventListener('DOMContentLoaded', () => {
     tabImgCounter.textContent = totalImages;
     tabVidCounter.textContent = totalVideos;
 
+    // Facebook numeric UID badge with one-click copy
+    const badgeUid = document.getElementById('badge-uid');
+    const uidValue = document.getElementById('uid-value');
+    const uid = data.uid || (data.author && data.author.uid);
+    if (badgeUid && uidValue) {
+      if (uid) {
+        uidValue.textContent = uid;
+        badgeUid.classList.remove('hidden');
+        badgeUid.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(uid);
+            showToast(`Facebook UID: ${uid} copied to clipboard!`);
+          } catch {
+            showToast(`UID: ${uid}`);
+          }
+        };
+      } else {
+        badgeUid.classList.add('hidden');
+      }
+    }
+
     // Locked post / locked profile unlock status badge
     const badgeLock = document.getElementById('badge-lock-status');
     if (badgeLock) {

@@ -2069,3 +2069,45 @@ body {
   font-weight: 600;
   box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
 }
+
+/* Facebook UID Badge with Copy Action */
+.stat-badge.uid-badge {
+  background: rgba(225, 29, 72, 0.18);
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  color: #fda4af;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(225, 29, 72, 0.25);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.stat-badge.uid-badge strong {
+  color: #ffffff;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.03em;
+}
+
+.stat-badge.uid-badge svg {
+  color: #fb7185;
+  transition: transform 0.2s ease;
+}
+
+.stat-badge.uid-badge:hover {
+  background: rgba(225, 29, 72, 0.35);
+  border-color: rgba(244, 63, 94, 0.7);
+  box-shadow: 0 0 16px rgba(225, 29, 72, 0.5);
+  transform: translateY(-1px);
+}
+
+.stat-badge.uid-badge:hover svg {
+  transform: scale(1.18);
+}
+
+.stat-badge.uid-badge:active {
+  transform: scale(0.96);
+}
+
