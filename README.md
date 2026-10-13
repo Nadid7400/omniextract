@@ -4,6 +4,9 @@ A powerful, privacy-first tool to extract **post texts**, **high-resolution imag
 
 Supports single posts as well as **Batch Extraction** for full story/novel series (e.g. 90+ chapter posts).
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Nadid7400/omniextract)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template?template=https://github.com/Nadid7400/omniextract)
+
 ---
 
 ## ✨ Features
