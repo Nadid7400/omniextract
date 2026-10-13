@@ -2111,3 +2111,47 @@ body {
   transform: scale(0.96);
 }
 
+/* Facebook Permanent ID Link Badge */
+.stat-badge.id-link-badge {
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #6ee7b7;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.stat-badge.id-link-badge strong {
+  color: #ffffff;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.02em;
+}
+
+.stat-badge.id-link-badge svg {
+  color: #34d399;
+  transition: transform 0.2s ease;
+}
+
+.stat-badge.id-link-badge:hover {
+  background: rgba(16, 185, 129, 0.32);
+  border-color: rgba(16, 185, 129, 0.75);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.45);
+  transform: translateY(-1px);
+  color: #a7f3d0;
+}
+
+.stat-badge.id-link-badge:hover svg {
+  transform: scale(1.18);
+}
+
+.stat-badge.id-link-badge:active {
+  transform: scale(0.96);
+}
+
+

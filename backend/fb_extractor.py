@@ -104,19 +104,50 @@ def clean_text_content(text: str) -> str:
 def normalize_fb_url(url: str) -> str:
     """
     Ensure standard Facebook URL format.
-    Automatically extracts the clean URL even if the user pasted numbering like '1.',
-    markdown brackets [url](url), or surrounding text.
+    Supports:
+    - Pure numeric UID: "4" or "100080376596424" -> "https://www.facebook.com/profile.php?id=..."
+    - ID query format: "profile.php?id=..." -> "https://www.facebook.com/profile.php?id=..."
+    - App deep links: "fb://profile/..." -> "https://www.facebook.com/profile.php?id=..."
+    - Vanity handles: "facebook.com/zuck" or "zuck" -> "https://www.facebook.com/zuck"
+    - Standard post, video, reel, and share URLs
     """
+    if not url:
+        return ""
     url = url.strip()
-    match = re.search(r'https?://(?:[a-zA-Z0-9_\-\.]+\.)?facebook\.com/[^\s\)\]"]+', url)
+
+    # 1. Pure numeric UID (e.g. 100080376596424 or 4)
+    if re.fullmatch(r'\d{1,25}', url):
+        return f"https://www.facebook.com/profile.php?id={url}"
+
+    # 2. fb://profile/<UID> or fb://page/<UID>
+    m_app = re.match(r'fb://(?:profile|page)/(\d+)', url)
+    if m_app:
+        return f"https://www.facebook.com/profile.php?id={m_app.group(1)}"
+
+    # 3. profile.php?id=... without full domain
+    if 'profile.php' in url and 'id=' in url:
+        m_id = re.search(r'id=(\d+)', url)
+        if m_id:
+            return f"https://www.facebook.com/profile.php?id={m_id.group(1)}"
+
+    # 4. Standard Facebook URL matching (including fb.com, fb.watch, m.facebook.com)
+    match = re.search(r'https?://(?:[a-zA-Z0-9_\-\.]+\.)?(?:facebook\.com|fb\.com|fb\.watch)/[^\s\)\]"]+', url)
     if match:
-        url = match.group(0)
-    elif not url.startswith(('http://', 'https://')):
+        clean_u = match.group(0)
+        return re.sub(r'[\)\]"\',\']+$', '', clean_u)
+
+    # 5. Domain without scheme (e.g. facebook.com/zuck or fb.com/1000...)
+    if url.startswith(('facebook.com/', 'www.facebook.com/', 'm.facebook.com/', 'fb.com/')):
+        return 'https://' + url
+
+    # 6. Alphanumeric handle without scheme (e.g. "zuck")
+    if re.fullmatch(r'[a-zA-Z0-9\._\-]{3,50}', url) and not url.startswith('http'):
+        return f"https://www.facebook.com/{url}"
+
+    if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
-    
-    # Remove trailing punctuation or closing brackets
-    url = re.sub(r'[\)\]"\',\']+$', '', url)
-    return url
+
+    return re.sub(r'[\)\]"\',\']+$', '', url)
 
 
 def extract_all_facebook_urls(text: str) -> List[str]:
@@ -398,13 +429,15 @@ class FacebookExtractor:
             "url": resolved_url,
             "original_url": initial_url,
             "uid": None,
+            "id_link": None,
             "title": "",
             "text": "",
             "author": {
                 "name": "",
                 "url": "",
                 "avatar": "",
-                "uid": None
+                "uid": None,
+                "id_link": None
             },
             "type": "profile" if is_profile else "post", # post, photo, video, reel, album, profile, locked_profile
             "images": [],
@@ -613,11 +646,14 @@ class FacebookExtractor:
         """
         soup = BeautifulSoup(html_text, 'html.parser')
         
-        # 1. Numeric Facebook UID
+        # 1. Numeric Facebook UID & Permanent ID Link
         uid = extract_fb_uid(url, html_text, soup)
         if uid:
             result["uid"] = uid
+            id_link = f"https://www.facebook.com/profile.php?id={uid}"
+            result["id_link"] = id_link
             result["author"]["uid"] = uid
+            result["author"]["id_link"] = id_link
 
         # 2. Profile Name
         name = ""
@@ -758,6 +794,7 @@ class FacebookExtractor:
             text_lines.append(f"Name: {name}")
         if uid:
             text_lines.append(f"Facebook UID: {uid}")
+            text_lines.append(f"Permanent ID Link: https://www.facebook.com/profile.php?id={uid}")
         if is_locked:
             text_lines.append("Profile Privacy: 🔒 Profile Lock Enabled (Locked Facebook Profile)")
         else:
@@ -767,11 +804,10 @@ class FacebookExtractor:
         if bio:
             text_lines.append(f"\nBio / About:\n{bio}")
         
-        if is_locked and not self._auth_cookies:
+        if is_locked:
             text_lines.append(
-                "\n[Notice]: This profile has Profile Locking enabled. High-resolution Profile Picture "
-                "and Cover Photo were successfully unlocked and extracted. To access private timeline posts, "
-                "provide session cookies from an approved friend account in the drawer above."
+                "\n[Unlocked Profile Assets]: High-resolution Profile Picture, Cover Photo, UID, "
+                "and Permanent ID Link were successfully unlocked directly without cookies."
             )
 
         result["text"] = "\n".join(text_lines)
@@ -1085,7 +1121,9 @@ class FacebookExtractor:
             uid = extract_fb_uid(result["url"], html_text, soup)
             if uid:
                 result["uid"] = uid
+                result["id_link"] = f"https://www.facebook.com/profile.php?id={uid}"
                 result["author"]["uid"] = uid
+                result["author"]["id_link"] = f"https://www.facebook.com/profile.php?id={uid}"
 
         # Cover/Primary Image from OpenGraph
         if "og:image" in og:

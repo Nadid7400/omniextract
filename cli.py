@@ -136,6 +136,8 @@ def main():
     print(f"Author:     {data.get('author', {}).get('name') or 'Unknown'}")
     if data.get("uid") or (data.get("author") and data["author"].get("uid")):
         print(f"UID:        {data.get('uid') or data['author'].get('uid')}")
+    if data.get("id_link") or (data.get("author") and data["author"].get("id_link")):
+        print(f"ID Link:    {data.get('id_link') or data['author'].get('id_link')}")
     print(f"Title:      {data.get('title') or 'N/A'}")
     print(f"Resolved:   {data.get('url')}")
     print("="*50)
