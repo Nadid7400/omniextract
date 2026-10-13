@@ -191,6 +191,39 @@ def _extract_post_id(url: str) -> Optional[str]:
     return None
 
 
+def is_profile_url(url: str) -> bool:
+    """Detect if a Facebook URL points to a user or page profile instead of a specific post."""
+    try:
+        clean = url.split('?')[0].split('#')[0].rstrip('/')
+        parsed = urllib.parse.urlparse(url)
+        path = parsed.path.strip('/')
+        
+        # profile.php?id=...
+        if 'profile.php' in path and 'id=' in parsed.query:
+            return True
+        
+        # /people/Name/ID or /p/Name/ID
+        if path.startswith('people/') or (path.startswith('p/') and re.search(r'/\d+$', path)):
+            return True
+
+        # Single segment username e.g. facebook.com/zuck or facebook.com/john.doe.123
+        segments = [s for s in path.split('/') if s]
+        if len(segments) == 1:
+            seg = segments[0].lower()
+            system_routes = {
+                'groups', 'pages', 'events', 'watch', 'reel', 'reels', 'share', 'posts',
+                'permalink', 'permalink.php', 'photo', 'photos', 'photo.php', 'video',
+                'videos', 'story', 'stories', 'hashtag', 'login', 'recover', 'help',
+                'policies', 'settings', 'marketplace', 'gaming', 'saved', 'messages',
+                'notifications', 'bookmarks', 'friends', 'home.php'
+            }
+            if seg not in system_routes and not seg.endswith('.php'):
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def parse_fb_cookies(raw: Any) -> Dict[str, str]:
     """
     Parse cookies from multiple formats:
@@ -304,6 +337,7 @@ class FacebookExtractor:
         initial_url = normalize_fb_url(raw_url)
         resolved_url = self.resolve_redirects(initial_url)
         self._strategies_used = []
+        is_profile = is_profile_url(resolved_url)
 
         result: Dict[str, Any] = {
             "success": True,
@@ -316,7 +350,7 @@ class FacebookExtractor:
                 "url": "",
                 "avatar": ""
             },
-            "type": "post", # post, photo, video, reel, album
+            "type": "profile" if is_profile else "post", # post, photo, video, reel, album, profile, locked_profile
             "images": [],
             "videos": [],
             "metadata": {
@@ -329,6 +363,7 @@ class FacebookExtractor:
             "source": "facebook",
             "extraction_strategies": [],
             "is_locked": False,
+            "is_locked_profile": False,
             "lock_bypass_used": None
         }
 
@@ -341,13 +376,19 @@ class FacebookExtractor:
                 html_content = resp.text
                 if resp.url != resolved_url:
                     result["url"] = resp.url
+                    if is_profile_url(resp.url):
+                        is_profile = True
                 
-                is_login_walled = self._detect_login_wall(html_content)
-                
-                if not is_login_walled:
-                    self._parse_html_and_ssr(html_content, result)
-                    if result["text"] or result["images"] or result["videos"]:
-                        self._strategies_used.append("desktop_ssr")
+                if is_profile:
+                    prof_ok = self._extract_profile(resolved_url, html_content, result)
+                    if prof_ok:
+                        self._strategies_used.append("profile_extractor")
+                else:
+                    is_login_walled = self._detect_login_wall(html_content)
+                    if not is_login_walled:
+                        self._parse_html_and_ssr(html_content, result)
+                        if result["text"] or result["images"] or result["videos"]:
+                            self._strategies_used.append("desktop_ssr")
         except Exception as e:
             result["fetch_warning"] = f"HTML fetch error: {str(e)}"
 
@@ -358,7 +399,11 @@ class FacebookExtractor:
                 resp = self.session.get(mobile_url, headers=HEADERS_MOBILE, timeout=self.timeout, allow_redirects=True)
                 if resp.status_code == 200:
                     mobile_html = resp.text
-                    if not self._detect_login_wall(mobile_html):
+                    if is_profile:
+                        prof_ok = self._extract_profile(resolved_url, mobile_html, result)
+                        if prof_ok:
+                            self._strategies_used.append("mobile_profile_extractor")
+                    elif not self._detect_login_wall(mobile_html):
                         self._parse_html_and_ssr(mobile_html, result)
                         if result["text"] or result["images"]:
                             self._strategies_used.append("mobile_fallback")
@@ -452,9 +497,9 @@ class FacebookExtractor:
             except Exception:
                 pass
 
-        # Step 2: yt-dlp extraction for video/reel only if it's actually a video link
+        # Step 2: yt-dlp extraction for video/reel only if it's actually a video link and NOT a profile
         is_video_link = any(v in result["url"].lower() for v in ['reel', 'watch', 'video', 'fb.watch', '/share/r', '/share/v'])
-        if is_video_link or bool(result["videos"]):
+        if not is_profile and (is_video_link or bool(result["videos"])):
             self._parse_with_ytdlp(result["url"], result)
 
         # Step 3: Polish and deduplicate
@@ -462,7 +507,7 @@ class FacebookExtractor:
 
         # Record strategies
         result["extraction_strategies"] = self._strategies_used
-        result["is_locked"] = is_login_walled
+        result["is_locked"] = is_login_walled or bool(result.get("is_locked_profile"))
 
         if not result["text"] and not result["images"] and not result["videos"] and not result["title"]:
             result["success"] = False
@@ -475,8 +520,163 @@ class FacebookExtractor:
                 )
             else:
                 result["error"] = "Could not extract content from this Facebook link. Ensure the post/video is publicly visible."
+        elif result.get("is_locked_profile") or is_profile:
+            result["success"] = True
 
         return result
+
+    def _detect_locked_profile(self, html_text: str) -> bool:
+        """Detect if a Facebook profile is locked (Profile Lock enabled)."""
+        indicators = [
+            "locked their profile",
+            "locked his profile",
+            "locked her profile",
+            "this profile is locked",
+            "only their friends can see what they share",
+            "only friends can see what they share",
+            "profile_lock",
+            "locked_profile",
+            '"is_profile_locked":true',
+            '"is_profile_locked": true',
+            '"is_locked_profile":true',
+            '"is_locked_profile": true',
+            "lock_shield",
+            "profile_locked_shield"
+        ]
+        lower_text = html_text.lower()
+        return any(ind in lower_text for ind in indicators)
+
+    def _extract_profile(self, url: str, html_text: str, result: Dict[str, Any]) -> bool:
+        """
+        Extract assets and metadata from a Facebook Profile.
+        Handles both public profiles and locked profiles (unlocking high-res avatar and cover photo).
+        """
+        soup = BeautifulSoup(html_text, 'html.parser')
+        
+        # 1. Profile Name
+        name = ""
+        og_title = ""
+        for tag in soup.find_all('meta'):
+            prop = tag.get('property', '') or tag.get('name', '')
+            if prop in ('og:title', 'title'):
+                og_title = tag.get('content', '')
+                break
+        if not og_title and soup.title:
+            og_title = soup.title.get_text()
+        
+        if og_title:
+            clean_name = re.sub(r'\s*[\-\|\•]\s*(Facebook|Log In|Sign Up).*$', '', og_title, flags=re.I).strip()
+            if clean_name:
+                name = clean_name
+        
+        if not name:
+            name_m = re.findall(r'"user":\{"name":"([^"]+)"', html_text) or re.findall(r'"profile_owner":\{"name":"([^"]+)"', html_text)
+            if name_m:
+                name = name_m[0]
+
+        if name:
+            result["title"] = name
+            result["author"]["name"] = name
+            result["author"]["url"] = url
+
+        # 2. Check if the profile is locked
+        is_locked = self._detect_locked_profile(html_text)
+        result["is_locked"] = is_locked
+        result["is_locked_profile"] = is_locked
+        if is_locked:
+            result["type"] = "locked_profile"
+            result["lock_bypass_used"] = "profile_lock_bypass"
+        else:
+            result["type"] = "profile"
+
+        # 3. Bio / About / Intro
+        bio = ""
+        for tag in soup.find_all('meta'):
+            prop = tag.get('property', '') or tag.get('name', '')
+            if prop in ('og:description', 'description'):
+                desc = tag.get('content', '')
+                if desc and not desc.lower().startswith('log in'):
+                    bio = clean_text_content(desc)
+                    break
+        if not bio:
+            bio_m = re.findall(r'"profile_intro_card":\{.*?"text":"([^"]+)"', html_text)
+            if bio_m:
+                bio = clean_text_content(bio_m[0])
+        
+        # 4. Extract High-Resolution Profile Picture (Unlocked)
+        avatar_url = ""
+        for tag in soup.find_all('meta'):
+            prop = tag.get('property', '') or tag.get('name', '')
+            if prop in ('og:image', 'image'):
+                c_img = tag.get('content', '')
+                if c_img and is_valid_fb_image(c_img):
+                    avatar_url = clean_cdn_url(c_img)
+                    break
+
+        if not avatar_url:
+            ssr_avatars = re.findall(r'"profile_picture":\{.*?"uri":"([^"]+)"', html_text)
+            if ssr_avatars:
+                avatar_url = clean_cdn_url(ssr_avatars[0])
+
+        if avatar_url:
+            result["author"]["avatar"] = avatar_url
+            result["images"].append({
+                "url": avatar_url,
+                "type": "profile_picture",
+                "label": "Profile Picture (High-Res / Unlocked)" if is_locked else "Profile Picture (High-Res)"
+            })
+
+        # 5. Extract Cover Photo
+        cover_matches = re.findall(r'"cover_photo":\{.*?"uri":"([^"]+)"', html_text) or re.findall(r'"coverPhoto":\{.*?"uri":"([^"]+)"', html_text)
+        if cover_matches:
+            cover_url = clean_cdn_url(cover_matches[0])
+            if cover_url and is_valid_fb_image(cover_url) and cover_url != avatar_url:
+                result["images"].append({
+                    "url": cover_url,
+                    "type": "cover_photo",
+                    "label": "Cover Photo (High-Res)"
+                })
+
+        # 6. If Authenticated Cookies Provided, Scrape Timeline via mbasic
+        if self._auth_cookies:
+            try:
+                mbasic_data = self._scrape_mbasic(url)
+                if mbasic_data.get("text"):
+                    bio = (bio + "\n\n" if bio else "") + mbasic_data["text"]
+                if mbasic_data.get("images"):
+                    for img_url in mbasic_data["images"]:
+                        if not any(i["url"] == img_url for i in result["images"]):
+                            result["images"].append({
+                                "url": img_url,
+                                "type": "timeline_photo",
+                                "label": f"Timeline Photo #{len(result['images']) + 1}"
+                            })
+                result["lock_bypass_used"] = "authenticated_friend_session"
+            except Exception:
+                pass
+
+        # 7. Formulate Profile Text Summary
+        text_lines = []
+        if name:
+            text_lines.append(f"Name: {name}")
+        if is_locked:
+            text_lines.append("Profile Privacy: 🔒 Profile Lock Enabled (Locked Facebook Profile)")
+        else:
+            text_lines.append("Profile Privacy: 🌐 Public Facebook Profile")
+        if url:
+            text_lines.append(f"Profile URL: {url}")
+        if bio:
+            text_lines.append(f"\nBio / About:\n{bio}")
+        
+        if is_locked and not self._auth_cookies:
+            text_lines.append(
+                "\n[Notice]: This profile has Profile Locking enabled. High-resolution Profile Picture "
+                "and Cover Photo were successfully unlocked and extracted. To access private timeline posts, "
+                "provide session cookies from an approved friend account in the drawer above."
+            )
+
+        result["text"] = "\n".join(text_lines)
+        return bool(result["images"] or name)
 
     def _detect_login_wall(self, html_text: str) -> bool:
         """Detect if Facebook is serving a login/signup wall instead of content."""
@@ -992,7 +1192,11 @@ class FacebookExtractor:
                 unique_videos.append(vid)
         result["videos"] = unique_videos
 
-        if "reel" in result["url"].lower():
+        if result.get("is_locked_profile") or result.get("type") == "locked_profile":
+            result["type"] = "locked_profile"
+        elif result.get("is_profile") or result.get("type") == "profile" or is_profile_url(result.get("url", "")):
+            result["type"] = "profile"
+        elif "reel" in result["url"].lower():
             result["type"] = "reel"
         elif result["videos"]:
             result["type"] = "video"

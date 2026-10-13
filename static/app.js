@@ -389,7 +389,13 @@ document.addEventListener('DOMContentLoaded', () => {
       avatarFallback.textContent = (author.name || 'FB').charAt(0).toUpperCase();
     }
 
-    badgeType.textContent = (data.type || 'Post').toUpperCase();
+    if (data.type === 'locked_profile' || data.is_locked_profile) {
+      badgeType.textContent = '🔒 LOCKED PROFILE';
+    } else if (data.type === 'profile') {
+      badgeType.textContent = 'PROFILE';
+    } else {
+      badgeType.textContent = (data.type || 'Post').toUpperCase();
+    }
 
     const totalImages = (data.images || []).length;
     const totalVideos = (data.videos || []).length;
@@ -399,18 +405,23 @@ document.addEventListener('DOMContentLoaded', () => {
     tabImgCounter.textContent = totalImages;
     tabVidCounter.textContent = totalVideos;
 
-    // Locked post unlock status badge
+    // Locked post / locked profile unlock status badge
     const badgeLock = document.getElementById('badge-lock-status');
     if (badgeLock) {
-      if (data.lock_bypass_used || data.is_locked) {
+      if (data.is_locked_profile || data.type === 'locked_profile') {
+        badgeLock.classList.remove('hidden');
+        badgeLock.textContent = '🔓 Locked Profile Assets Unlocked';
+      } else if (data.lock_bypass_used || data.is_locked) {
         badgeLock.classList.remove('hidden');
         const stratMap = {
           'authenticated_session': '🔓 Unlocked (Auth Session)',
+          'authenticated_friend_session': '🔓 Unlocked (Friend Session)',
+          'profile_lock_bypass': '🔓 Profile Lock Unlocked',
           'mbasic': '🔓 Unlocked (mbasic Engine)',
           'archive_cache': '🔓 Unlocked (Archive)',
           'mobile_ua': '🔓 Unlocked (Mobile Engine)'
         };
-        badgeLock.textContent = stratMap[data.lock_bypass_used] || '🔓 Locked Post Unlocked';
+        badgeLock.textContent = stratMap[data.lock_bypass_used] || '🔓 Locked Content Unlocked';
       } else {
         badgeLock.classList.add('hidden');
       }
@@ -421,7 +432,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderVideosTab(data.videos || []);
     rawJsonViewer.textContent = JSON.stringify(data, null, 2);
 
-    if (totalVideos > 0 && totalImages === 0 && !data.text) {
+    if (data.type === 'profile' || data.type === 'locked_profile') {
+      switchTab('tab-images');
+    } else if (totalVideos > 0 && totalImages === 0 && !data.text) {
       switchTab('tab-videos');
     } else if (totalImages > 0 && !data.text) {
       switchTab('tab-images');
