@@ -44,21 +44,26 @@ def get_public_tunnel_url():
         pass
     return None
 
-def start_public_tunnel(port=8000):
-    """Start ngrok in background if requested and not already running."""
+def start_public_tunnel(port=8000, domain=None):
+    """Start ngrok in background with optional permanent static domain."""
     existing_url = get_public_tunnel_url()
     if existing_url:
         return existing_url
 
+    cmd = ["ngrok", "http", str(port)]
+    target_domain = domain or os.getenv("NGROK_DOMAIN")
+    if target_domain:
+        cmd.extend(["--domain", target_domain])
+
     try:
         subprocess.Popen(
-            ["ngrok", "http", str(port)],
+            cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
         # Give ngrok a moment to establish tunnel
-        for _ in range(10):
+        for _ in range(12):
             time.sleep(0.5)
             url = get_public_tunnel_url()
             if url:
@@ -74,16 +79,29 @@ def open_browser(port=8000):
     webbrowser.open(url)
 
 if __name__ == "__main__":
-    port = 8000
+    port = int(os.getenv("PORT", 8000))
+    for i, arg in enumerate(sys.argv):
+        if arg in ("--port", "-p") and i + 1 < len(sys.argv):
+            try:
+                port = int(sys.argv[i + 1])
+            except ValueError:
+                pass
+
     host = "0.0.0.0"  # Allows access from any device on the network
     lan_ip = get_lan_ip()
 
     enable_public = "--public" in sys.argv or "--share" in sys.argv
+    static_domain = None
+    for i, arg in enumerate(sys.argv):
+        if arg in ("--domain", "--static-domain") and i + 1 < len(sys.argv):
+            static_domain = sys.argv[i + 1]
+            enable_public = True
+
     public_url = None
 
     if enable_public:
-        print("\n[*] Starting public internet tunnel via ngrok...")
-        public_url = start_public_tunnel(port)
+        print("\n[*] Starting public internet tunnel...")
+        public_url = start_public_tunnel(port, domain=static_domain)
     else:
         public_url = get_public_tunnel_url()
 
@@ -95,7 +113,7 @@ if __name__ == "__main__":
     if public_url:
         print(f"   [Public]  {public_url}")
     else:
-        print(f"   [Public]  Run with --public or run 'ngrok http {port}'")
+        print(f"   [Public]  Run with '--public' or '--domain <your-domain>' for global URL")
     print("=" * 64)
 
     # Launch browser automatically
