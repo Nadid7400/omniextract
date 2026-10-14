@@ -11,12 +11,14 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <!-- Ambient liquid background glow elements -->
-  <div class="liquid-mesh-background"></div>
-  <div class="glow-orb orb-primary"></div>
-  <div class="glow-orb orb-secondary"></div>
-  <div class="glow-orb orb-tertiary"></div>
-  <div class="glow-orb orb-quaternary"></div>
+  <!-- Ambient liquid background glow stage (Hardware accelerated & isolated) -->
+  <div class="bg-stage" aria-hidden="true">
+    <div class="liquid-mesh-background"></div>
+    <div class="glow-orb orb-primary"></div>
+    <div class="glow-orb orb-secondary"></div>
+    <div class="glow-orb orb-tertiary"></div>
+    <div class="glow-orb orb-quaternary"></div>
+  </div>
 
   <div class="app-wrapper">
     <!-- Header Navigation -->
