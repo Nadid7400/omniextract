@@ -69,7 +69,33 @@ def start_public_tunnel(port=8000, domain=None):
             if url:
                 return url
     except Exception as e:
-        print(f"[!] Could not automatically launch ngrok: {e}")
+        print(f"[!] Could not launch ngrok: {e}")
+    return None
+
+def start_cloudflared_tunnel(port=8000):
+    """Start Cloudflare Quick Tunnel in background."""
+    cloudflared_bin = r"C:\Program Files (x86)\cloudflared\cloudflared.exe"
+    if not os.path.exists(cloudflared_bin):
+        cloudflared_bin = "cloudflared"
+
+    try:
+        proc = subprocess.Popen(
+            [cloudflared_bin, "tunnel", "--url", f"http://127.0.0.1:{port}"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        )
+        # Extract the trycloudflare URL from logs
+        for _ in range(25):
+            line = proc.stdout.readline() if proc.stdout else ""
+            if "trycloudflare.com" in line:
+                m = re.search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", line)
+                if m:
+                    return m.group(0)
+            time.sleep(0.4)
+    except Exception as e:
+        print(f"[!] Could not launch cloudflared: {e}")
     return None
 
 def open_browser(port=8000):
@@ -90,7 +116,8 @@ if __name__ == "__main__":
     host = "0.0.0.0"  # Allows access from any device on the network
     lan_ip = get_lan_ip()
 
-    enable_public = "--public" in sys.argv or "--share" in sys.argv
+    enable_public = "--public" in sys.argv or "--share" in sys.argv or "--cloudflare" in sys.argv
+    use_cf = "--cloudflare" in sys.argv or "--cloudflared" in sys.argv
     static_domain = None
     for i, arg in enumerate(sys.argv):
         if arg in ("--domain", "--static-domain") and i + 1 < len(sys.argv):
@@ -100,8 +127,15 @@ if __name__ == "__main__":
     public_url = None
 
     if enable_public:
-        print("\n[*] Starting public internet tunnel...")
-        public_url = start_public_tunnel(port, domain=static_domain)
+        if use_cf:
+            print("\n[*] Starting Cloudflare tunnel...")
+            public_url = start_cloudflared_tunnel(port)
+        else:
+            print("\n[*] Starting public internet tunnel...")
+            public_url = start_public_tunnel(port, domain=static_domain)
+            if not public_url:
+                print("[*] Falling back to Cloudflare tunnel...")
+                public_url = start_cloudflared_tunnel(port)
     else:
         public_url = get_public_tunnel_url()
 
@@ -113,7 +147,7 @@ if __name__ == "__main__":
     if public_url:
         print(f"   [Public]  {public_url}")
     else:
-        print(f"   [Public]  Run with '--public' or '--domain <your-domain>' for global URL")
+        print(f"   [Public]  Run with '--public' or '--cloudflare' for global HTTPS URL")
     print("=" * 64)
 
     # Launch browser automatically
