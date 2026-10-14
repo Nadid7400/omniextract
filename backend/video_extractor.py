@@ -179,10 +179,8 @@ class UniversalVideoExtractor:
             "is_best": True
         })
 
-        # 2. Add each target resolution if supported or below max_height
+        # 2. Add each target resolution: 1080p, 720p, 480p, 360p, 240p, 144p
         for res in target_resolutions:
-            if max_height and res > max_height:
-                continue
 
             # Look for format close to this resolution
             matching_format = None
