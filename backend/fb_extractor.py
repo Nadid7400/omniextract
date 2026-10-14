@@ -458,6 +458,7 @@ class FacebookExtractor:
             "type": "profile" if is_profile else "post", # post, photo, video, reel, album, profile, locked_profile
             "images": [],
             "videos": [],
+            "posts": [],
             "metadata": {
                 "publish_time": None,
                 "likes": None,
@@ -786,7 +787,125 @@ class FacebookExtractor:
                         "label": f"Photo #{len(result['images']) + 1} (Full-Res)"
                     })
 
-        # 8. If Authenticated Cookies Provided, Scrape Timeline via mbasic
+        # 8. Deep SSR JSON Mining for Posts, Videos & Featured Content (works on locked profiles)
+        # Facebook SSR payloads contain serialized Relay data with posts, videos, and collections
+        # even when the profile lock is enabled — these are served in the initial HTML response.
+        post_texts = []
+
+        # 8a. Extract post text snippets from SSR Relay JSON
+        post_text_patterns = [
+            r'"message":\{"text":"((?:[^"\\]|\\.)*)"\}',
+            r'"post_message":\{"text":"((?:[^"\\]|\\.)*)"\}',
+            r'"creation_story":\{.*?"message":\{"text":"((?:[^"\\]|\\.)*)"\}',
+            r'"comet_sections":\{.*?"message":\{"text":"((?:[^"\\]|\\.)*)"\}',
+            r'"text":"([^"]{20,})","__typename":"TextWithEntities"',
+            r'"snippet_text":"((?:[^"\\]|\\.)*)"\}',
+        ]
+        for pat in post_text_patterns:
+            try:
+                matches = re.findall(pat, html_text)
+                for m in matches:
+                    raw = m if isinstance(m, str) else m[0]
+                    cleaned = clean_text_content(raw)
+                    if cleaned and len(cleaned) > 10 and not cleaned.startswith('http'):
+                        post_texts.append(cleaned)
+            except Exception:
+                continue
+
+        # 8b. Extract video streams from SSR payloads (locked profiles may still have video data)
+        video_stream_patterns = [
+            (r'"playable_url_quality_hd":"(https:[^"]+)"', "HD (720p+)"),
+            (r'"browser_native_hd_url":"(https:[^"]+)"', "HD"),
+            (r'"playable_url":"(https:[^"]+)"', "SD"),
+            (r'"browser_native_sd_url":"(https:[^"]+)"', "SD"),
+            (r'"hd_src":"(https:[^"]+)"', "HD"),
+            (r'"sd_src":"(https:[^"]+)"', "SD"),
+        ]
+        for pattern, quality in video_stream_patterns:
+            try:
+                vid_matches = re.findall(pattern, html_text)
+                for vm in vid_matches:
+                    v_url = clean_cdn_url(vm)
+                    if v_url and not any(v['url'] == v_url for v in result["videos"]):
+                        result["videos"].append({
+                            "url": v_url,
+                            "quality": quality,
+                            "format": "mp4",
+                            "source": "locked_profile_ssr"
+                        })
+            except Exception:
+                continue
+
+        # 8c. Extract video URLs from Facebook video CDN (video.xx.fbcdn.net)
+        video_cdn_matches = re.findall(r'https://video[^\s"\'<>\\]+\.fbcdn\.net[^\s"\'<>\\]+(?:\\/[^\s"\'<>\\]+)*', html_text)
+        for vm in video_cdn_matches:
+            v_url = clean_cdn_url(vm)
+            if v_url and '.mp4' in v_url.lower() or 'video' in v_url.lower():
+                if not any(v['url'] == v_url for v in result["videos"]):
+                    result["videos"].append({
+                        "url": v_url,
+                        "quality": "HD" if "hd" in v_url.lower() else "SD",
+                        "format": "mp4",
+                        "source": "locked_profile_cdn"
+                    })
+
+        # 8d. Extract featured/recent photo collections from SSR
+        featured_photo_patterns = [
+            r'"image":\{"uri":"(https://scontent[^"]+)"',
+            r'"photo_image":\{"uri":"(https://scontent[^"]+)"',
+            r'"full_image":\{"uri":"(https://scontent[^"]+)"',
+            r'"large_image":\{"uri":"(https://scontent[^"]+)"',
+            r'"high_res_image":\{"uri":"(https://scontent[^"]+)"',
+            r'"media":\{"image":\{"uri":"(https://scontent[^"]+)"',
+            r'"thumbnail_image":\{"uri":"(https://scontent[^"]+)"',
+            r'"viewer_image":\{"uri":"(https://scontent[^"]+)"',
+        ]
+        for pat in featured_photo_patterns:
+            try:
+                matches = re.findall(pat, html_text)
+                for m in matches:
+                    c_url = upgrade_to_full_resolution(m)
+                    if is_valid_fb_image(c_url):
+                        if not any(item['url'] == c_url for item in result["images"]):
+                            result["images"].append({
+                                "url": c_url,
+                                "type": "featured_photo",
+                                "label": f"Photo #{len(result['images']) + 1} (Full-Res)"
+                            })
+            except Exception:
+                continue
+
+        # 8e. Extract follower/friend counts and other metadata from SSR
+        metadata_patterns = {
+            "friends_count": [r'"friend_count":(\d+)', r'"friends_count":(\d+)'],
+            "followers_count": [r'"follower_count":(\d+)', r'"followers_count":(\d+)'],
+            "likes_count": [r'"page_likers":\{"count":(\d+)', r'"likes_count":(\d+)'],
+        }
+        for key, patterns in metadata_patterns.items():
+            for pat in patterns:
+                m = re.search(pat, html_text)
+                if m:
+                    result["metadata"][key] = int(m.group(1))
+                    break
+
+        # 8f. Extract workplace, education, location from SSR
+        info_patterns = {
+            "location": [r'"current_city":\{.*?"name":"([^"]+)"', r'"hometown":\{.*?"name":"([^"]+)"'],
+            "workplace": [r'"work":\[?\{.*?"name":"([^"]+)"', r'"employer":\{.*?"name":"([^"]+)"'],
+            "education": [r'"education":\[?\{.*?"name":"([^"]+)"', r'"school":\{.*?"name":"([^"]+)"'],
+            "relationship": [r'"relationship_status":"([^"]+)"'],
+        }
+        profile_info = {}
+        for key, patterns in info_patterns.items():
+            for pat in patterns:
+                m = re.search(pat, html_text)
+                if m:
+                    profile_info[key] = clean_text_content(m.group(1))
+                    break
+        if profile_info:
+            result["metadata"]["profile_info"] = profile_info
+
+        # 9. If Authenticated Cookies Provided, Scrape Timeline via mbasic
         if self._auth_cookies:
             try:
                 mbasic_data = self._scrape_mbasic(url)
@@ -796,15 +915,116 @@ class FacebookExtractor:
                     for img_url in mbasic_data["images"]:
                         if not any(i["url"] == img_url for i in result["images"]):
                             result["images"].append({
-                                "url": img_url,
+                                "url": upgrade_to_full_resolution(img_url),
                                 "type": "timeline_photo",
-                                "label": f"Timeline Photo #{len(result['images']) + 1}"
+                                "label": f"Timeline Photo #{len(result['images']) + 1} (Full-Res)"
                             })
                 result["lock_bypass_used"] = "authenticated_friend_session"
             except Exception:
                 pass
 
-        # 9. Formulate Profile Text Summary
+        # 9b. For locked profiles without cookies: try mbasic and mobile scrapes for additional posts
+        if is_locked and not self._auth_cookies:
+            try:
+                mbasic_data = self._scrape_mbasic(url)
+                if mbasic_data.get("text") and len(mbasic_data["text"]) > 10:
+                    post_texts.append(mbasic_data["text"])
+                if mbasic_data.get("images"):
+                    for img_url in mbasic_data["images"]:
+                        full_url = upgrade_to_full_resolution(img_url)
+                        if is_valid_fb_image(full_url) and not any(i["url"] == full_url for i in result["images"]):
+                            result["images"].append({
+                                "url": full_url,
+                                "type": "mbasic_photo",
+                                "label": f"Photo #{len(result['images']) + 1} (Full-Res)"
+                            })
+                    self._strategies_used.append("locked_mbasic_scrape")
+            except Exception:
+                pass
+
+            # Also try mobile UA on the profile for additional SSR data
+            try:
+                mobile_url = _convert_to_mobile_url(url)
+                mobile_resp = self.session.get(mobile_url, headers=HEADERS_MOBILE, timeout=self.timeout, allow_redirects=True)
+                if mobile_resp.status_code == 200:
+                    mobile_html = mobile_resp.text
+                    # Extract additional scontent images from mobile view
+                    mobile_scontent = re.findall(r'https://scontent[^\s"\'<>\\]+(?:\\/[^\s"\'<>\\]+)*', mobile_html)
+                    for match in mobile_scontent:
+                        c_url = upgrade_to_full_resolution(match)
+                        if is_valid_fb_image(c_url) and not any(item['url'] == c_url for item in result["images"]):
+                            result["images"].append({
+                                "url": c_url,
+                                "type": "mobile_media",
+                                "label": f"Photo #{len(result['images']) + 1} (Full-Res)"
+                            })
+                    # Extract additional video streams from mobile HTML
+                    for pattern, quality in video_stream_patterns:
+                        try:
+                            vid_matches = re.findall(pattern, mobile_html)
+                            for vm in vid_matches:
+                                v_url = clean_cdn_url(vm)
+                                if v_url and not any(v['url'] == v_url for v in result["videos"]):
+                                    result["videos"].append({
+                                        "url": v_url,
+                                        "quality": quality,
+                                        "format": "mp4",
+                                        "source": "locked_profile_mobile"
+                                    })
+                        except Exception:
+                            continue
+                    self._strategies_used.append("locked_mobile_scrape")
+            except Exception:
+                pass
+
+        # 9c. Deep Subtab Scraping for Locked Profiles (&sk=videos, &sk=photos, &sk=photos_albums, &sk=photos_by)
+        # Facebook's SSR renderer packages playable video streams (HD/SD MP4) and high-resolution photo galleries
+        # on these subtab endpoints even when the main timeline has Profile Lock enabled.
+        if uid or url:
+            profile_base = f"https://www.facebook.com/profile.php?id={uid}" if uid else url
+            subtabs_to_scan = [
+                ("videos", f"{profile_base}&sk=videos" if "?" in profile_base else f"{profile_base}/videos"),
+                ("photos", f"{profile_base}&sk=photos" if "?" in profile_base else f"{profile_base}/photos"),
+                ("albums", f"{profile_base}&sk=photos_albums" if "?" in profile_base else f"{profile_base}/photos_albums"),
+                ("photos_by", f"{profile_base}&sk=photos_by" if "?" in profile_base else f"{profile_base}/photos_by"),
+            ]
+            for sub_name, sub_url in subtabs_to_scan:
+                try:
+                    s_resp = self.session.get(sub_url, headers=HEADERS_DESKTOP, timeout=self.timeout, allow_redirects=True)
+                    if s_resp.status_code == 200:
+                        s_html = s_resp.text
+                        # 1. Playable Video Streams (HD & SD MP4)
+                        for pattern, quality in video_stream_patterns:
+                            for vm in re.findall(pattern, s_html):
+                                v_url = clean_cdn_url(vm)
+                                if v_url and not any(v['url'] == v_url for v in result["videos"]):
+                                    result["videos"].append({
+                                        "url": v_url,
+                                        "quality": quality,
+                                        "format": "mp4",
+                                        "source": f"locked_subtab_{sub_name}"
+                                    })
+                        # 2. Master Full-Res Photos
+                        s_scontent = re.findall(r'https://scontent[^\s"\'<>\\]+(?:\\/[^\s"\'<>\\]+)*', s_html)
+                        for match in s_scontent:
+                            c_url = upgrade_to_full_resolution(match)
+                            if is_valid_fb_image(c_url) and not any(item['url'] == c_url for item in result["images"]):
+                                result["images"].append({
+                                    "url": c_url,
+                                    "type": f"{sub_name}_media",
+                                    "label": f"Photo #{len(result['images']) + 1} (Full-Res)"
+                                })
+                        # 3. Post Texts
+                        for pat in post_text_patterns:
+                            for pm in re.findall(pat, s_html):
+                                cleaned_p = clean_text_content(pm if isinstance(pm, str) else pm[0])
+                                if cleaned_p and len(cleaned_p) > 10 and not cleaned_p.startswith('http'):
+                                    post_texts.append(cleaned_p)
+                        self._strategies_used.append(f"subtab_{sub_name}")
+                except Exception:
+                    continue
+
+        # 10. Formulate Profile Text Summary
         text_lines = []
         if name:
             text_lines.append(f"Name: {name}")
@@ -817,13 +1037,59 @@ class FacebookExtractor:
             text_lines.append("Profile Privacy: 🌐 Public Facebook Profile")
         if url:
             text_lines.append(f"Profile URL: {url}")
+
+        # Add profile info metadata
+        if profile_info:
+            text_lines.append("\n📋 Profile Details:")
+            if profile_info.get("location"):
+                text_lines.append(f"  📍 Location: {profile_info['location']}")
+            if profile_info.get("workplace"):
+                text_lines.append(f"  🏢 Workplace: {profile_info['workplace']}")
+            if profile_info.get("education"):
+                text_lines.append(f"  🎓 Education: {profile_info['education']}")
+            if profile_info.get("relationship"):
+                text_lines.append(f"  💑 Relationship: {profile_info['relationship']}")
+
+        # Add social counts
+        if result["metadata"].get("friends_count"):
+            text_lines.append(f"\n👥 Friends: {result['metadata']['friends_count']:,}")
+        if result["metadata"].get("followers_count"):
+            text_lines.append(f"👁️ Followers: {result['metadata']['followers_count']:,}")
+
         if bio:
             text_lines.append(f"\nBio / About:\n{bio}")
         
+        # Append extracted post texts
+        if post_texts:
+            unique_posts = []
+            seen_post_snippets = set()
+            for pt in post_texts:
+                sig = pt[:80].lower().strip()
+                if sig not in seen_post_snippets:
+                    seen_post_snippets.add(sig)
+                    unique_posts.append(pt)
+            if unique_posts:
+                result["posts"] = [
+                    {"index": idx, "text": post, "type": "profile_post", "author": name}
+                    for idx, post in enumerate(unique_posts, 1)
+                ]
+                text_lines.append(f"\n📝 Extracted Posts ({len(unique_posts)} found):")
+                for idx, post in enumerate(unique_posts[:20], 1):
+                    text_lines.append(f"\n--- Post #{idx} ---")
+                    text_lines.append(post)
+
         if is_locked:
+            unlocked_assets = []
+            if result["images"]:
+                unlocked_assets.append(f"{len(result['images'])} High-Res Photos")
+            if result["videos"]:
+                unlocked_assets.append(f"{len(result['videos'])} Video Streams")
+            if post_texts:
+                unlocked_assets.append(f"{len(post_texts)} Post Texts")
+            unlocked_assets.extend(["UID", "Permanent ID Link", "Profile Picture", "Cover Photo"])
             text_lines.append(
-                "\n[Unlocked Profile Assets]: High-resolution Profile Picture, Cover Photo, UID, "
-                "and Permanent ID Link were successfully unlocked directly without cookies."
+                f"\n[🔓 Unlocked Profile Assets]: {', '.join(unlocked_assets)} "
+                "were successfully extracted from this locked profile without cookies."
             )
 
         result["text"] = "\n".join(text_lines)
