@@ -63,6 +63,22 @@ def clean_cdn_url(url: str) -> str:
     return url
 
 
+def upgrade_to_full_resolution(url: str) -> str:
+    """
+    Upgrade Facebook, Instagram, and Meta CDN media URLs to their unconstrained master full resolution.
+    Strips client downscaling parameters (e.g. &ctp=s160x160, &ctp=s720x720, &ctp=p526x296)
+    while strictly preserving CDN security token signatures (oh=..., _nc_sid=..., etc.).
+    """
+    if not url:
+        return ""
+    clean = clean_cdn_url(url)
+    if any(domain in clean for domain in ["fbcdn.net", "facebook.com", "instagram.com", "cdninstagram.com"]):
+        # Remove downscaling client/crop thumbnail parameters
+        clean = re.sub(r'([?&])ctp=[^&#]+(&?)', lambda m: '&' if m.group(1) == '&' and m.group(2) else ('?' if m.group(1) == '?' and m.group(2) else ''), clean)
+        clean = clean.replace('?&', '?').rstrip('?&')
+    return clean
+
+
 def clean_text_content(text: str) -> str:
     """
     Clean post text from JSON and HTML escapes without corrupting non-ASCII
@@ -712,7 +728,7 @@ class FacebookExtractor:
             if prop in ('og:image', 'image'):
                 c_img = tag.get('content', '')
                 if c_img and is_valid_fb_image(c_img):
-                    avatar_url = clean_cdn_url(c_img)
+                    avatar_url = upgrade_to_full_resolution(c_img)
                     break
 
         if not avatar_url:
@@ -725,7 +741,7 @@ class FacebookExtractor:
             for pat in avatar_patterns:
                 ssr_avatars = re.findall(pat, html_text)
                 if ssr_avatars:
-                    avatar_url = clean_cdn_url(ssr_avatars[0])
+                    avatar_url = upgrade_to_full_resolution(ssr_avatars[0])
                     break
 
         if avatar_url:
@@ -733,7 +749,7 @@ class FacebookExtractor:
             result["images"].append({
                 "url": avatar_url,
                 "type": "profile_picture",
-                "label": "Profile Picture (High-Res / Unlocked)" if is_locked else "Profile Picture (High-Res)"
+                "label": "Profile Picture (Master Full-Res / Unlocked)" if is_locked else "Profile Picture (Master Full-Res)"
             })
 
         # 6. Extract High-Resolution Cover Photo
@@ -748,26 +764,26 @@ class FacebookExtractor:
         for pat in cover_patterns:
             cover_matches = re.findall(pat, html_text)
             if cover_matches:
-                cover_url = clean_cdn_url(cover_matches[0])
+                cover_url = upgrade_to_full_resolution(cover_matches[0])
                 if cover_url and is_valid_fb_image(cover_url) and cover_url != avatar_url:
                     if not any(i["url"] == cover_url for i in result["images"]):
                         result["images"].append({
                             "url": cover_url,
                             "type": "cover_photo",
-                            "label": "Cover Photo (High-Res)"
+                            "label": "Cover Photo (Master Full-Res)"
                         })
                         break
 
         # 7. Extract All Available Photos / Pictures in Profile (Featured, Recent, Timeline, Badges)
         scontent_matches = re.findall(r'https://scontent[^\s"\'<>\\]+(?:\\/[^\s"\'<>\\]+)*', html_text)
         for match in scontent_matches:
-            c_url = clean_cdn_url(match)
+            c_url = upgrade_to_full_resolution(match)
             if is_valid_fb_image(c_url):
                 if not any(item['url'] == c_url for item in result["images"]):
                     result["images"].append({
                         "url": c_url,
                         "type": "profile_media",
-                        "label": f"Profile Photo #{len(result['images']) + 1}"
+                        "label": f"Photo #{len(result['images']) + 1} (Full-Res)"
                     })
 
         # 8. If Authenticated Cookies Provided, Scrape Timeline via mbasic
@@ -1126,13 +1142,14 @@ class FacebookExtractor:
                 result["author"]["id_link"] = f"https://www.facebook.com/profile.php?id={uid}"
 
         # Cover/Primary Image from OpenGraph
+        # Cover/Primary Image from OpenGraph
         if "og:image" in og:
-            og_img = clean_cdn_url(og["og:image"])
+            og_img = upgrade_to_full_resolution(og["og:image"])
             if is_valid_fb_image(og_img):
                 result["images"].append({
                     "url": og_img,
                     "type": "cover",
-                    "label": "Featured / Cover Image"
+                    "label": "Featured / Cover Image (Full-Res)"
                 })
 
         # Video from OpenGraph / Twitter
@@ -1178,23 +1195,23 @@ class FacebookExtractor:
         # 3. High-res Photo Extraction from SSR Relay
         scontent_matches = re.findall(r'https://scontent[^\s"\'<>\\]+(?:\\/[^\s"\'<>\\]+)*', html_text)
         for match in scontent_matches:
-            c_url = clean_cdn_url(match)
+            c_url = upgrade_to_full_resolution(match)
             if is_valid_fb_image(c_url):
                 if not any(item['url'] == c_url for item in result["images"]):
                     result["images"].append({
                         "url": c_url,
                         "type": "photo",
-                        "label": f"Image #{len(result['images']) + 1}"
+                        "label": f"Image #{len(result['images']) + 1} (Full-Res)"
                     })
 
         # Avatar extraction
         avatar_matches = re.findall(r'"profile_picture":\{"uri":"(https:[^"]+)"\}', html_text)
         if avatar_matches:
-            result["author"]["avatar"] = clean_cdn_url(avatar_matches[0])
+            result["author"]["avatar"] = upgrade_to_full_resolution(avatar_matches[0])
         elif not result["author"]["avatar"]:
             actor_matches = re.findall(r'"profile_photo":\{"url":"(https:[^"]+)"\}', html_text)
             if actor_matches:
-                result["author"]["avatar"] = clean_cdn_url(actor_matches[0])
+                result["author"]["avatar"] = upgrade_to_full_resolution(actor_matches[0])
 
         # 4. Embedded Video Stream extraction from SSR
         video_stream_patterns = [
@@ -1266,15 +1283,29 @@ class FacebookExtractor:
 
                 thumb = info.get("thumbnail")
                 if thumb:
-                    c_thumb = clean_cdn_url(thumb)
+                    c_thumb = upgrade_to_full_resolution(thumb)
                     if is_valid_fb_image(c_thumb) and not any(img['url'] == c_thumb for img in result["images"]):
                         result["images"].insert(0, {
                             "url": c_thumb,
                             "type": "thumbnail",
-                            "label": "Video Poster / Thumbnail"
+                            "label": "Video Poster / Thumbnail (Full-Res)"
                         })
 
                 formats = info.get("formats", [])
+                # Sort formats so highest resolution, complete audio/video stream is first
+                def format_sort_key(f):
+                    h = f.get("height") or 0
+                    tbr = f.get("tbr") or 0
+                    fs = f.get("filesize") or f.get("filesize_approx") or 0
+                    has_audio = 1 if f.get("acodec") != "none" else 0
+                    has_video = 1 if f.get("vcodec") != "none" else 0
+                    return (has_audio and has_video, h, tbr, fs)
+
+                try:
+                    formats.sort(key=format_sort_key, reverse=True)
+                except Exception:
+                    pass
+
                 seen_urls = set(v["url"] for v in result["videos"])
                 for f in formats:
                     v_url = f.get("url")
@@ -1315,12 +1346,18 @@ class FacebookExtractor:
                     pass
 
     def _polish_results(self, result: Dict[str, Any]):
-        """Deduplicate images, set clean labels, and determine overall content type."""
+        """Deduplicate images, upgrade to master full resolution, and sort videos by highest quality."""
+        # 1. Upgrade all image assets to unconstrained master full resolution
         seen_img_bases = set()
         seen_img_ids = set()
         unique_images = []
         for img in result["images"]:
-            u = img["url"]
+            u = upgrade_to_full_resolution(img["url"] if isinstance(img, dict) else img)
+            if isinstance(img, dict):
+                img["url"] = u
+            else:
+                img = {"url": u, "type": "photo", "label": "Photo (Full-Res)"}
+            
             base = u.split("?")[0] if "?" in u else u
             fn_match = re.search(r'([0-9]+_[0-9]+_[0-9]+)', base)
             fn_id = fn_match.group(1) if fn_match else base
@@ -1330,14 +1367,36 @@ class FacebookExtractor:
                 unique_images.append(img)
         result["images"] = unique_images
 
+        # 2. Upgrade author avatar to full resolution
+        if result.get("author") and result["author"].get("avatar"):
+            result["author"]["avatar"] = upgrade_to_full_resolution(result["author"]["avatar"])
+
+        # 3. Deduplicate and prioritize highest resolution videos (1080p > 720p HD > SD)
         seen_vid_bases = set()
         unique_videos = []
         for vid in result["videos"]:
-            u = vid["url"]
+            u = vid["url"] if isinstance(vid, dict) else vid
             base = u.split("?")[0] if "?" in u else u
             if base not in seen_vid_bases:
                 seen_vid_bases.add(base)
-                unique_videos.append(vid)
+                unique_videos.append(vid if isinstance(vid, dict) else {"url": u, "quality": "Standard", "format": "mp4"})
+
+        def video_quality_rank(v):
+            q = (v.get("quality") or "").lower()
+            score = 0
+            if "1080" in q:
+                score += 1000
+            elif "720" in q or "hd" in q:
+                score += 500
+            elif "480" in q:
+                score += 200
+            elif "360" in q or "sd" in q:
+                score += 100
+            if v.get("has_audio"):
+                score += 50
+            return score
+
+        unique_videos.sort(key=video_quality_rank, reverse=True)
         result["videos"] = unique_videos
 
         if result.get("is_locked_profile") or result.get("type") == "locked_profile":

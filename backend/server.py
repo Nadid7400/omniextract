@@ -18,7 +18,7 @@ from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from backend.fb_extractor import FacebookExtractor, HEADERS, extract_all_facebook_urls, normalize_fb_url, parse_fb_cookies
+from backend.fb_extractor import FacebookExtractor, HEADERS, extract_all_facebook_urls, normalize_fb_url, parse_fb_cookies, upgrade_to_full_resolution
 
 app = FastAPI(
     title="OmniExtract Facebook",
@@ -269,7 +269,7 @@ async def download_compiled_txt(req: BatchDownloadTxtRequest):
 async def proxy_media(url: str = Query(...)):
     """Proxy image/media streams to bypass Facebook CDN cross-origin referrer restrictions."""
     try:
-        media_url = urllib.parse.unquote(url)
+        media_url = upgrade_to_full_resolution(urllib.parse.unquote(url))
         req_headers = dict(HEADERS)
         req_headers["Referer"] = "https://www.facebook.com/"
         
@@ -299,7 +299,7 @@ async def proxy_media(url: str = Query(...)):
 async def download_media(url: str = Query(...), filename: str = Query("media.bin")):
     """Force-download any remote Facebook media file as an attachment."""
     try:
-        media_url = urllib.parse.unquote(url)
+        media_url = upgrade_to_full_resolution(urllib.parse.unquote(url))
         req_headers = dict(HEADERS)
         req_headers["Referer"] = "https://www.facebook.com/"
         
@@ -328,7 +328,7 @@ async def download_media(url: str = Query(...), filename: str = Query("media.bin
 
 @app.post("/api/download-zip")
 async def download_all_zip(req: ZipDownloadRequest):
-    """Package extracted post text, metadata, and images into a downloadable zip file."""
+    """Package extracted post text, metadata, and images into a downloadable zip file at master full resolution."""
     try:
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -348,7 +348,7 @@ async def download_all_zip(req: ZipDownloadRequest):
                 "text": req.text,
                 "total_images": len(req.images),
                 "total_videos": len(req.videos),
-                "image_urls": req.images,
+                "image_urls": [upgrade_to_full_resolution(u) for u in req.images],
                 "video_urls": req.videos
             }
             zip_file.writestr("metadata.json", json.dumps(meta_dict, indent=2).encode("utf-8"))
@@ -356,9 +356,10 @@ async def download_all_zip(req: ZipDownloadRequest):
             req_headers = dict(HEADERS)
             req_headers["Referer"] = "https://www.facebook.com/"
             
-            for idx, img_url in enumerate(req.images[:20]):
+            for idx, raw_img_url in enumerate(req.images[:100]):
                 try:
-                    img_resp = requests.get(img_url, headers=req_headers, timeout=10)
+                    img_url = upgrade_to_full_resolution(raw_img_url)
+                    img_resp = requests.get(img_url, headers=req_headers, timeout=15)
                     if img_resp.status_code == 200:
                         ext = ".jpg"
                         if "png" in img_resp.headers.get("Content-Type", ""):

@@ -510,6 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       card.innerHTML = `
         <div class="card-img-wrap" data-img="${directUrl}" data-proxy="${proxyUrl}">
+          <div class="card-img-res-pill hidden"><span class="pill-dot"></span><span class="res-text">Full Res</span></div>
           <img src="${directUrl}" alt="Facebook Photo ${idx+1}" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null; this.src='${proxyUrl}';">
           <div class="img-overlay-zoom">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -542,6 +543,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const wrap = card.querySelector('.card-img-wrap');
       wrap.addEventListener('click', () => openLightbox(directUrl, downloadUrl));
+
+      const imgEl = card.querySelector('img');
+      const resPill = card.querySelector('.card-img-res-pill');
+      const resText = card.querySelector('.res-text');
+      const updateRes = () => {
+        if (imgEl && imgEl.naturalWidth && imgEl.naturalHeight && resPill && resText) {
+          resText.textContent = `${imgEl.naturalWidth} × ${imgEl.naturalHeight}`;
+          resPill.classList.remove('hidden');
+        }
+      };
+      if (imgEl.complete && imgEl.naturalWidth) {
+        updateRes();
+      } else {
+        imgEl.addEventListener('load', updateRes);
+      }
 
       const copyBtn = card.querySelector('.btn-copy-link');
       copyBtn.addEventListener('click', (e) => {
