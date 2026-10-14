@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OmniExtract — Facebook Content Extractor (No Login Required)</title>
-  <meta name="description" content="Extract Facebook post texts, high-resolution photos, reels, and video streams instantly with just a link. No account or login required.">
+  <title>OmniExtract — Universal Any Video & Audio Downloader (1080p to 144p | 320 kbps MP3)</title>
+  <meta name="description" content="Download videos from YouTube, TikTok, Facebook, Instagram, Twitter/X, Adult Websites (18+), and 1,000+ platforms in full quality (1080p to 144p) or studio MP3 audio (up to 320 kbps).">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -26,17 +26,18 @@
       <div class="brand">
         <div class="brand-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
           </svg>
         </div>
         <div class="brand-text">
-          <span class="brand-title">OmniExtract <span class="badge-tag">FB v1.1</span></span>
-          <span class="brand-subtitle">Universal Facebook Content Ripper & Batch Extractor</span>
+          <span class="brand-title">OmniExtract <span class="badge-tag">Video v2.0</span></span>
+          <span class="brand-subtitle">Universal Video &amp; Audio Downloader (1,000+ Platforms)</span>
         </div>
       </div>
 
       <div class="header-actions">
-        <button id="btn-show-share" class="btn-ghost btn-share-pill hidden" title="Public Link & Remote Access">
+        <button id="btn-show-share" class="btn-ghost btn-share-pill" title="Public Link & Remote Access">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="18" cy="5" r="3"></circle>
             <circle cx="6" cy="12" r="3"></circle>
@@ -48,21 +49,13 @@
           <span id="share-live-pill" class="badge-live-dot">LIVE</span>
         </button>
 
-        <button id="btn-show-history" class="btn-ghost" title="View Recent Extraction History">
+        <button id="btn-show-history" class="btn-ghost" title="View Recent Downloads History">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
             <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
           <span>History</span>
           <span id="history-count" class="counter-badge">0</span>
-        </button>
-
-        <button id="btn-show-api-docs" class="btn-ghost hidden" title="API Documentation">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="16 18 22 12 16 6"></polyline>
-            <polyline points="8 6 2 12 8 18"></polyline>
-          </svg>
-          <span>API Docs</span>
         </button>
       </div>
     </header>
@@ -72,31 +65,31 @@
       <section class="hero-section">
         <div class="hero-pill">
           <span class="pulse-dot"></span>
-          <span>100% Anonymous &bull; No Login &bull; Zero Cookies &bull; Multi-Language Support</span>
+          <span>100% Free &bull; No Watermark &bull; 1080p to 144p Full Quality &bull; Up to 320 kbps MP3 &bull; 1,000+ Sites</span>
         </div>
         <h1 class="hero-heading">
-          Extract <span class="gradient-text">Anything</span> from Facebook
+          Download <span class="gradient-text">Any Video</span> from Any Platform
         </h1>
         <p class="hero-subheading">
-          Extract raw post texts, full novel/story series, high-definition images, and full MP4 video streams from any public Facebook link.
+          Download videos in full quality (1080p, 720p, 480p, 360p, 240p, 144p) and studio MP3 audio (up to 320 kbps) from YouTube, TikTok, Facebook, Instagram, Twitter/X, Adult Websites (18+), and more.
         </p>
 
         <!-- Mode Toggle -->
         <div class="mode-toggle-bar">
           <button type="button" class="mode-tab-btn active" id="btn-mode-single">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+              <polygon points="23 7 16 12 23 17 23 7"></polygon>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
             </svg>
-            <span>Single Link</span>
+            <span>Single Video Link</span>
           </button>
           <button type="button" class="mode-tab-btn" id="btn-mode-batch">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
               <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
             </svg>
-            <span>Batch Mode (Multiple Links / Novels)</span>
-            <span class="batch-badge">Series</span>
+            <span>Batch Mode (Multiple Video Links)</span>
+            <span class="batch-badge">Multi</span>
           </button>
         </div>
 
@@ -114,7 +107,7 @@
               type="text" 
               id="fb-url-input" 
               name="fbUrl"
-              placeholder="Paste Facebook link, profile link, ID link, or numeric UID (e.g. 1000... or zuck)..."
+              placeholder="Paste video link (YouTube, TikTok, Facebook, Instagram, Twitter/X, Adult sites, etc)..."
               autocomplete="off"
               spellcheck="false"
               required
@@ -133,7 +126,7 @@
               </svg>
             </button>
             <button type="submit" id="btn-extract-submit" class="btn-primary">
-              <span class="btn-text">Extract Everything</span>
+              <span class="btn-text">Download Video</span>
               <svg class="btn-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <line x1="5" y1="12" x2="19" y2="12"></line>
                 <polyline points="12 5 19 12 12 19"></polyline>
@@ -148,13 +141,13 @@
               <textarea 
                 id="batch-urls-input"
                 rows="6"
-                placeholder="Paste multiple Facebook URLs here (supports numbered lists like '1.https://... 2.https://...', markdown links, or multiline URLs)..."
+                placeholder="Paste multiple video URLs here (one per line, or space-separated from YouTube, TikTok, Facebook, Adult sites, etc)..."
                 spellcheck="false"
               ></textarea>
             </div>
             <div class="batch-footer-bar">
               <div class="batch-counter-text">
-                <span id="batch-urls-detected-count">0</span> Facebook links detected
+                <span id="batch-urls-detected-count">0</span> video links detected
               </div>
               <div class="batch-actions-btns">
                 <button type="button" id="btn-batch-paste" class="btn-input-action">
@@ -166,7 +159,7 @@
                 </button>
                 <button type="button" id="btn-batch-clear" class="btn-input-action">Clear</button>
                 <button type="submit" id="btn-batch-submit" class="btn-primary">
-                  <span class="btn-batch-text">Extract All Links</span>
+                  <span class="btn-batch-text">Fetch All Videos</span>
                   <div class="spinner hidden" id="batch-spinner"></div>
                 </button>
               </div>
@@ -175,16 +168,19 @@
 
           <!-- Quick Samples & Type Support -->
           <div class="samples-bar" id="single-samples-bar">
-            <span class="samples-label">Quick Test Links:</span>
+            <span class="samples-label">Quick Test Platforms:</span>
             <div class="sample-tags">
-              <button type="button" class="sample-btn" data-url="4">
-                <span>UID: 4 (Direct UID Input)</span>
+              <button type="button" class="sample-btn" data-url="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
+                <span>YouTube (4K / 1080p)</span>
               </button>
-              <button type="button" class="sample-btn" data-url="https://www.facebook.com/zuck">
-                <span>Mark Zuckerberg (Vanity URL)</span>
+              <button type="button" class="sample-btn" data-url="https://www.facebook.com/share/r/15fHqU3h9x/">
+                <span>Facebook Reel / Video</span>
               </button>
-              <button type="button" class="sample-btn" data-url="https://www.facebook.com/share/p/1DyLPPg1BQ/">
-                <span>Story Post (Bengali Full Chapter)</span>
+              <button type="button" class="sample-btn" data-url="https://www.tiktok.com/@tiktok/video/7106594312292453678">
+                <span>TikTok (No Watermark)</span>
+              </button>
+              <button type="button" class="sample-btn" data-url="https://www.instagram.com/reels/">
+                <span>Instagram Reel</span>
               </button>
             </div>
           </div>
@@ -200,66 +196,74 @@
         <div class="result-header-card">
           <div class="post-meta-profile">
             <div class="author-avatar-wrap">
-              <img id="author-avatar" src="" alt="Author Avatar" referrerpolicy="no-referrer" class="author-avatar hidden">
-              <div id="author-avatar-fallback" class="avatar-fallback">FB</div>
+              <img id="author-avatar" src="" alt="Thumbnail" referrerpolicy="no-referrer" class="author-avatar hidden">
+              <div id="author-avatar-fallback" class="avatar-fallback">▶</div>
             </div>
             <div class="author-info">
-              <h2 id="author-name" class="author-name">Facebook User</h2>
+              <h2 id="author-name" class="author-name">Video Channel / Creator</h2>
               <p id="post-title" class="post-title-text"></p>
               <div class="content-badges">
-                <span id="badge-type" class="type-badge">Post</span>
-                <span id="badge-uid" class="stat-badge uid-badge hidden" title="Click to copy Facebook UID">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                  <span>UID: <strong id="uid-value"></strong></span>
-                </span>
-                <a id="badge-id-link" class="stat-badge id-link-badge hidden" href="#" target="_blank" title="Click to copy Permanent ID Link">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                  </svg>
-                  <span>ID Link: <strong id="id-link-value"></strong></span>
-                </a>
-                <span id="badge-images-count" class="stat-badge">0 Images</span>
-                <span id="badge-videos-count" class="stat-badge">0 Videos</span>
-                <span id="badge-lock-status" class="stat-badge lock-badge hidden">🔓 Locked Post Unlocked</span>
+                <span id="badge-platform" class="type-badge" style="background: linear-gradient(135deg, #e11d48, #991b1b);">YouTube</span>
+                <span id="badge-max-res" class="stat-badge" style="border-color: rgba(244, 63, 94, 0.5); color: #fda4af;">1080p Full HD</span>
+                <span id="badge-duration" class="stat-badge">0:00</span>
+                <span id="badge-views" class="stat-badge">0 views</span>
+                <span id="badge-audio-res" class="stat-badge" style="border-color: rgba(16, 185, 129, 0.5); color: #6ee7b7;">320 kbps MP3</span>
               </div>
             </div>
           </div>
 
           <div class="header-action-group">
-            <button id="btn-download-all-zip" class="btn-zip-download">
+            <a id="btn-quick-download-best" href="#" class="btn-zip-download" style="background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
+                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
               </svg>
-              <span>Download Bundle (.ZIP)</span>
-            </button>
+              <span>Download 1080p MP4</span>
+            </a>
+            <a id="btn-quick-download-audio" href="#" class="btn-zip-download" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+              </svg>
+              <span>Download 320k MP3</span>
+            </a>
             <a id="btn-open-original" href="#" target="_blank" rel="noopener noreferrer" class="btn-secondary">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                 <polyline points="15 3 21 3 21 9"></polyline>
                 <line x1="10" y1="14" x2="21" y2="3"></line>
               </svg>
-              <span>Open on Facebook</span>
+              <span>Original Link</span>
             </a>
           </div>
         </div>
 
         <!-- Tabbed Display Controls -->
         <div class="tabs-nav">
-          <button class="tab-btn active" data-tab="tab-text" id="tab-btn-text">
+          <button class="tab-btn active" data-tab="tab-videos" id="tab-btn-videos">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
+              <polygon points="23 7 16 12 23 17 23 7"></polygon>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
             </svg>
-            <span>Post Text & Captions</span>
+            <span>🎬 Video Formats (1080p - 144p)</span>
+          </button>
+
+          <button class="tab-btn" data-tab="tab-audio" id="tab-btn-audio">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18V5l12-2v13"></path>
+              <circle cx="6" cy="18" r="3"></circle>
+              <circle cx="18" cy="16" r="3"></circle>
+            </svg>
+            <span>🎵 Audio MP3 (Up to 320 kbps)</span>
+          </button>
+
+          <button class="tab-btn" data-tab="tab-player" id="tab-btn-player">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polygon points="10 8 16 12 10 16 10 8"></polygon>
+            </svg>
+            <span>▶️ Watch Preview</span>
           </button>
 
           <button class="tab-btn" data-tab="tab-images" id="tab-btn-images">
@@ -268,15 +272,17 @@
               <circle cx="8.5" cy="8.5" r="1.5"></circle>
               <polyline points="21 15 16 10 5 21"></polyline>
             </svg>
-            <span>Images & Photos (<span id="tab-img-counter">0</span>)</span>
+            <span>🖼️ Thumbnail &amp; Poster</span>
           </button>
 
-          <button class="tab-btn" data-tab="tab-videos" id="tab-btn-videos">
+          <button class="tab-btn" data-tab="tab-text" id="tab-btn-text">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="23 7 16 12 23 17 23 7"></polygon>
-              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
             </svg>
-            <span>Video & Reels (<span id="tab-vid-counter">0</span>)</span>
+            <span>📝 Description &amp; Details</span>
           </button>
 
           <button class="tab-btn" data-tab="tab-raw" id="tab-btn-raw">
@@ -285,12 +291,44 @@
               <line x1="9" y1="20" x2="15" y2="20"></line>
               <line x1="12" y1="4" x2="12" y2="20"></line>
             </svg>
-            <span>Raw Metadata JSON</span>
+            <span>📜 Raw JSON</span>
           </button>
         </div>
 
-        <!-- Tab 1: Post Text & Caption -->
-        <div id="tab-text" class="tab-pane active">
+        <!-- Tab 1: Video Downloads (1080p to 144p) -->
+        <div id="tab-videos" class="tab-pane active">
+          <div id="video-formats-grid" class="formats-grid"></div>
+        </div>
+
+        <!-- Tab 2: Audio Downloads (Up to 320 kbps) -->
+        <div id="tab-audio" class="tab-pane">
+          <div id="audio-formats-grid" class="formats-grid"></div>
+        </div>
+
+        <!-- Tab 3: Watch Preview Player -->
+        <div id="tab-player" class="tab-pane">
+          <div class="content-box">
+            <div class="embedded-player-wrap">
+              <video id="player-preview-video" controls playsinline preload="metadata">
+                Your browser does not support HTML5 video preview.
+              </video>
+            </div>
+            <p id="player-empty-note" class="empty-state hidden" style="margin-top:16px;">
+              Live in-browser preview stream unavailable for this platform. Use the direct Video or Audio download tabs above.
+            </p>
+          </div>
+        </div>
+
+        <!-- Tab 4: Thumbnail & Poster -->
+        <div id="tab-images" class="tab-pane">
+          <div id="images-empty" class="empty-state hidden">
+            <p>No video poster image available.</p>
+          </div>
+          <div id="images-grid" class="gallery-grid"></div>
+        </div>
+
+        <!-- Tab 5: Description & Details -->
+        <div id="tab-text" class="tab-pane">
           <div class="content-box">
             <div class="box-header">
               <div class="box-stats">
@@ -299,20 +337,12 @@
                 <span class="box-stat-item" id="stat-chars">0 characters</span>
               </div>
               <div class="box-actions">
-                <button id="btn-copy-text" class="btn-card-action" title="Copy text to clipboard">
+                <button id="btn-copy-text" class="btn-card-action" title="Copy text description">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                   </svg>
                   <span>Copy Text</span>
-                </button>
-                <button id="btn-download-txt" class="btn-card-action" title="Download as .txt file">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                  </svg>
-                  <span>Save .TXT</span>
                 </button>
               </div>
             </div>
@@ -320,27 +350,11 @@
           </div>
         </div>
 
-        <!-- Tab 2: Images Gallery -->
-        <div id="tab-images" class="tab-pane">
-          <div id="images-empty" class="empty-state hidden">
-            <p>No high-resolution images found for this link.</p>
-          </div>
-          <div id="images-grid" class="gallery-grid"></div>
-        </div>
-
-        <!-- Tab 3: Videos & Reels -->
-        <div id="tab-videos" class="tab-pane">
-          <div id="videos-empty" class="empty-state hidden">
-            <p>No playable video streams detected in this link.</p>
-          </div>
-          <div id="videos-container" class="videos-list"></div>
-        </div>
-
-        <!-- Tab 4: Raw Metadata JSON -->
+        <!-- Tab 6: Raw Metadata JSON -->
         <div id="tab-raw" class="tab-pane">
           <div class="content-box">
             <div class="box-header">
-              <span class="box-label">Structured JSON Extraction Tree</span>
+              <span class="box-label">Structured yt-dlp Video JSON Tree</span>
               <button id="btn-copy-json" class="btn-card-action">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -358,41 +372,20 @@
       <section id="batch-results-zone" class="batch-results-zone hidden">
         <div class="result-header-card">
           <div>
-            <h2 class="author-name">Batch Extraction Complete</h2>
-            <p class="post-title-text" id="batch-summary-subtitle">Extracted all series chapters</p>
+            <h2 class="author-name">Batch Video Extraction Queue</h2>
+            <p class="post-title-text" id="batch-summary-subtitle">Fetched video download links</p>
             <div class="content-badges">
-              <span id="badge-batch-count" class="type-badge">0 Chapters</span>
-              <span id="badge-batch-total-words" class="stat-badge">0 Words</span>
+              <span id="badge-batch-count" class="type-badge">0 Videos</span>
             </div>
           </div>
-          <div class="header-action-group">
-            <button id="btn-download-compiled-novel" class="btn-zip-download" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-              </svg>
-              <span>Download Compiled Novel (.TXT)</span>
-            </button>
-            <button id="btn-download-batch-zip" class="btn-zip-download">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              <span>Download All Chapters (.ZIP)</span>
-            </button>
-          </div>
         </div>
-
-        <!-- Chapters List Accordion -->
         <div id="batch-chapters-list" class="batch-chapters-container"></div>
       </section>
     </main>
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>OmniExtract &bull; Open & Privacy-focused Facebook Content Archiver &bull; No Login Required</p>
+      <p>OmniExtract &bull; Universal Video &amp; Audio Downloader &bull; 1080p Full Quality &bull; 320 kbps MP3 &bull; No Login Required</p>
     </footer>
   </div>
 
@@ -401,7 +394,7 @@
     <div class="modal-panel">
       <div class="modal-header">
         <div class="modal-title-group">
-          <h3>Recent Extractions</h3>
+          <h3>Recent Video Extractions</h3>
           <span class="modal-sub">Stored locally in your browser</span>
         </div>
         <button id="btn-close-history" class="btn-icon-close">&times;</button>
@@ -413,50 +406,14 @@
     </div>
   </div>
 
-  <!-- API Docs Modal -->
-  <div id="api-modal" class="modal-backdrop hidden">
-    <div class="modal-panel modal-lg">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <h3>REST API Reference</h3>
-          <span class="modal-sub">Integrate Facebook extraction programmatically</span>
-        </div>
-        <button id="btn-close-api" class="btn-icon-close">&times;</button>
-      </div>
-      <div class="modal-body api-docs-content">
-        <h4>1. Extract Single Post</h4>
-        <p>Send a POST request with the Facebook link:</p>
-        <div class="code-snippet-box">
-          <pre><code>curl -X POST "http://localhost:8000/api/extract" \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.facebook.com/..."}'</code></pre>
-        </div>
-
-        <h4>2. Batch Extract Novel Series or Multiple Links</h4>
-        <div class="code-snippet-box">
-          <pre><code>curl -X POST "http://localhost:8000/api/extract-batch" \
-  -H "Content-Type: application/json" \
-  -d '{"raw_text": "1.https://... 2.https://..."}'</code></pre>
-        </div>
-
-        <h4>3. Direct Media Proxy & Download</h4>
-        <p>Bypasses Facebook CDN referer restrictions:</p>
-        <div class="code-snippet-box">
-          <pre><code>GET /api/proxy?url=&lt;ENCODED_CDN_URL&gt;
-GET /api/download?url=&lt;ENCODED_CDN_URL&gt;&filename=photo.jpg</code></pre>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Lightbox Modal for Full-res Image Inspection -->
+  <!-- Lightbox Modal for Full-res Thumbnail Inspection -->
   <div id="lightbox-modal" class="lightbox-backdrop hidden">
     <button id="btn-close-lightbox" class="lightbox-close">&times;</button>
     <div class="lightbox-content">
       <img id="lightbox-img" src="" alt="Enlarged media" referrerpolicy="no-referrer">
       <div class="lightbox-toolbar">
         <a id="lightbox-download" href="#" class="btn-primary-sm" download>Download High-Res</a>
-        <a id="lightbox-open" href="#" target="_blank" rel="noopener noreferrer" class="btn-secondary-sm">Open Direct CDN URL</a>
+        <a id="lightbox-open" href="#" target="_blank" rel="noopener noreferrer" class="btn-secondary-sm">Open Direct URL</a>
       </div>
     </div>
   </div>
@@ -480,12 +437,12 @@ GET /api/download?url=&lt;ENCODED_CDN_URL&gt;&filename=photo.jpg</code></pre>
           <div class="share-card-header">
             <div class="share-type-icon">🌐</div>
             <div class="share-type-info">
-              <strong>Worldwide Public URL (HTTPS)</strong>
-              <p>Share with anyone across the internet without installation</p>
+              <strong>Worldwide Render URL (HTTPS)</strong>
+              <p>Permanent 24/7 cloud address</p>
             </div>
           </div>
           <div class="share-url-box">
-            <input type="text" id="public-url-input" readonly value="https://tray-coherence-splurge.ngrok-free.dev" />
+            <input type="text" id="public-url-input" readonly value="https://omniextract-fb.onrender.com" />
             <button type="button" id="btn-copy-public-url" class="btn-primary-sm">Copy Link</button>
           </div>
         </div>
@@ -495,7 +452,7 @@ GET /api/download?url=&lt;ENCODED_CDN_URL&gt;&filename=photo.jpg</code></pre>
             <div class="share-type-icon">📱</div>
             <div class="share-type-info">
               <strong>Local Wi-Fi / LAN URL</strong>
-              <p>Connect your phone or other devices on the same home/office Wi-Fi</p>
+              <p>Connect your phone on the same Wi-Fi</p>
             </div>
           </div>
           <div class="share-url-box">

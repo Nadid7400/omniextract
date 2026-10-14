@@ -1925,4 +1925,153 @@ body {
   transform: scale(0.96);
 }
 
+/* ==========================================================================
+   Universal Format Cards Grid (Video & Audio)
+   ========================================================================== */
+.formats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.format-card {
+  background: var(--glass-surface);
+  backdrop-filter: var(--glass-blur-heavy);
+  -webkit-backdrop-filter: var(--glass-blur-heavy);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: var(--glass-specular-shadow);
+  transition: var(--transition-fluid);
+  position: relative;
+  overflow: hidden;
+}
+
+.format-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(244, 63, 94, 0.4), transparent);
+}
+
+.format-card.best-card::before {
+  background: linear-gradient(90deg, #f59e0b, #ef4444, #ec4899);
+  height: 3px;
+}
+
+.format-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(244, 63, 94, 0.5);
+  box-shadow: 0 12px 35px rgba(225, 29, 72, 0.25);
+}
+
+.format-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.format-res-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.format-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: rgba(225, 29, 72, 0.2);
+  color: #fda4af;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+}
+
+.format-pill.pill-audio {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.format-pill.pill-best {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(239, 68, 68, 0.3));
+  color: #fde047;
+  border-color: rgba(245, 158, 11, 0.6);
+}
+
+.format-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+}
+
+.format-meta-row strong {
+  color: var(--text-secondary);
+}
+
+.btn-format-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #e11d48, #be123c);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.92rem;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(225, 29, 72, 0.3);
+  transition: var(--transition-fluid);
+}
+
+.btn-format-download:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 6px 22px rgba(225, 29, 72, 0.55);
+  transform: translateY(-2px);
+  color: #fff;
+}
+
+.btn-format-download.btn-audio {
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.btn-format-download.btn-audio:hover {
+  box-shadow: 0 6px 22px rgba(16, 185, 129, 0.55);
+}
+
+/* Embedded Player Preview */
+.embedded-player-wrap {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #000;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.embedded-player-wrap video {
+  width: 100%;
+  max-height: 480px;
+  display: block;
+}
+
+
 

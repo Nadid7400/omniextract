@@ -27,3 +27,5 @@ extracted_novel/
 *.zip
 .system_generated/
 compiled_test.txt
+.playwright-mcp/
+
