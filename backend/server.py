@@ -150,6 +150,9 @@ async def get_network_info():
     except Exception:
         pass
 
+    if not public_url:
+        public_url = os.getenv("RENDER_EXTERNAL_URL") or "https://omniextract-9h5t.onrender.com"
+
     return {
         "status": "online",
         "app": "Omni Extractor Universal Downloader",
@@ -160,7 +163,7 @@ async def get_network_info():
         "local_url": "http://localhost:8000",
         "lan_url": f"http://{lan_ip}:8000",
         "public_url": public_url,
-        "is_public": public_url is not None
+        "is_public": True
     }
 
 async def process_video_info(url: str, cookies: Optional[str] = None) -> Dict[str, Any]:

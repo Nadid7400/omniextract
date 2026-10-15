@@ -866,7 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.public_url) {
         publicUrlInput.value = data.public_url;
       } else {
-        publicUrlInput.value = window.location.origin;
+        publicUrlInput.value = 'https://omniextract-9h5t.onrender.com';
       }
     } catch {}
   }
