@@ -213,16 +213,50 @@ class UniversalVideoExtractor:
         if self.ffmpeg_path and os.path.exists(self.ffmpeg_path):
             opts["ffmpeg_location"] = self.ffmpeg_path
 
-        # Check for cookies file
-        cookie_file = os.getenv("YTDL_COOKIES") or os.path.join(os.getcwd(), "cookies.txt")
-        if os.path.exists(cookie_file):
+        # Check for cookies from various sources:
+        # 1. Custom cookies text passed via API/Frontend
+        # 2. Render Secret File (/etc/secrets/cookies.txt)
+        # 3. YTDL_COOKIES_CONTENT environment variable
+        # 4. Standard local cookies.txt file
+        custom_cookies = (extra_opts or {}).pop("cookies", None) if extra_opts else None
+        cookie_file = None
+
+        if custom_cookies and str(custom_cookies).strip():
+            try:
+                import hashlib
+                c_hash = hashlib.md5(custom_cookies.encode("utf-8", "ignore")).hexdigest()[:12]
+                tmp_c = os.path.join(tempfile.gettempdir(), f"cookie_{c_hash}.txt")
+                with open(tmp_c, "w", encoding="utf-8") as f:
+                    f.write(str(custom_cookies).strip())
+                cookie_file = tmp_c
+            except Exception:
+                pass
+
+        if not cookie_file:
+            for p in ["/etc/secrets/cookies.txt", os.getenv("YTDL_COOKIES", ""), os.path.join(os.getcwd(), "cookies.txt")]:
+                if p and os.path.exists(p):
+                    cookie_file = p
+                    break
+
+        if not cookie_file:
+            env_content = os.getenv("YTDL_COOKIES_CONTENT")
+            if env_content and env_content.strip():
+                try:
+                    tmp_env_c = os.path.join(tempfile.gettempdir(), "render_ytdl_cookies.txt")
+                    with open(tmp_env_c, "w", encoding="utf-8") as f:
+                        f.write(env_content.strip())
+                    cookie_file = tmp_env_c
+                except Exception:
+                    pass
+
+        if cookie_file and os.path.exists(cookie_file):
             opts["cookiefile"] = cookie_file
 
         if extra_opts:
             opts.update(extra_opts)
         return opts
 
-    def extract_info(self, url: str) -> Dict[str, Any]:
+    def extract_info(self, url: str, cookies: Optional[str] = None) -> Dict[str, Any]:
         """
         Extract video metadata, dynamically determine all available video resolutions,
         and generate high-quality audio extraction profiles (up to 320 kbps MP3, M4A, FLAC, WAV).
@@ -233,6 +267,7 @@ class UniversalVideoExtractor:
         candidate_configs = [
             {"extractor_args": {"youtube": {"player_client": ["android", "ios", "mweb"]}}},
             {"extractor_args": {"youtube": {"player_client": ["ios", "android"]}}},
+            {"extractor_args": {"youtube": {"player_client": ["android"]}}},
             {"extractor_args": {"youtube": {"player_client": ["tv", "web_embedded", "android", "ios"]}}},
             {"extractor_args": {"youtube": {"player_client": ["visionos", "android_vr", "web"]}}},
             {"extractor_args": {"youtube": {"player_client": ["web"]}}},
@@ -241,7 +276,10 @@ class UniversalVideoExtractor:
 
         for cfg in candidate_configs:
             try:
-                opts = self.get_ydl_options({**cfg, "skip_download": True}, is_download=False)
+                extra = {**cfg, "skip_download": True}
+                if cookies:
+                    extra["cookies"] = cookies
+                opts = self.get_ydl_options(extra, is_download=False)
                 with yt_dlp.YoutubeDL(opts) as ydl:
                     info = ydl.extract_info(url, download=False)
                 if info:
@@ -471,7 +509,7 @@ class UniversalVideoExtractor:
             "total_formats": len(formats)
         }
 
-    def download_video_file(self, url: str, quality: str, output_path: str) -> str:
+    def download_video_file(self, url: str, quality: str, output_path: str, cookies: Optional[str] = None) -> str:
         """
         Download video at specified resolution (e.g. 2160, 1440, 1080, 720, 480, 360, best)
         and merge with best audio into MP4. Supports both separate video/audio streams and
@@ -486,12 +524,16 @@ class UniversalVideoExtractor:
             except Exception:
                 format_spec = "bestvideo*+bestaudio/best"
 
-        ydl_opts = self.get_ydl_options({
+        extra = {
             "skip_download": False,
             "format": format_spec,
             "outtmpl": output_path,
             "merge_output_format": "mp4",
-        }, is_download=True)
+        }
+        if cookies:
+            extra["cookies"] = cookies
+
+        ydl_opts = self.get_ydl_options(extra, is_download=True)
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
@@ -511,7 +553,7 @@ class UniversalVideoExtractor:
             return output_path
         return output_path
 
-    def download_audio_file(self, url: str, audio_format: str = "mp3", bitrate: str = "320", output_path: str = "") -> str:
+    def download_audio_file(self, url: str, audio_format: str = "mp3", bitrate: str = "320", output_path: str = "", cookies: Optional[str] = None) -> str:
         """
         Extract audio and convert to specified format (MP3 up to 320 kbps CBR, M4A, FLAC, WAV).
         """
@@ -530,12 +572,16 @@ class UniversalVideoExtractor:
         elif clean_format == "m4a":
             postprocessor["preferredquality"] = "0"
 
-        ydl_opts = self.get_ydl_options({
+        extra = {
             "skip_download": False,
             "format": "bestaudio/best",
             "outtmpl": output_path,
             "postprocessors": [postprocessor]
-        }, is_download=True)
+        }
+        if cookies:
+            extra["cookies"] = cookies
+
+        ydl_opts = self.get_ydl_options(extra, is_download=True)
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])

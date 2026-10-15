@@ -36,7 +36,17 @@
         </div>
       </div>
 
-      <div class="header-actions">
+        <button id="btn-show-cookies" class="btn-ghost" title="YouTube & Cloud Cookies">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"></path>
+            <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"></circle>
+            <circle cx="16" cy="15.5" r="1" fill="currentColor"></circle>
+            <circle cx="9.5" cy="15.5" r="1" fill="currentColor"></circle>
+          </svg>
+          <span>Cookies</span>
+          <span id="cookie-status-dot" class="cookie-dot-none" title="No cookies saved"></span>
+        </button>
+
         <button id="btn-show-share" class="btn-ghost btn-share-pill" title="Public Link & Remote Access">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="18" cy="5" r="3"></circle>
@@ -533,6 +543,58 @@
           <div class="tip-icon">✨</div>
           <div class="tip-text">
             <strong>Cross-Device Extraction:</strong> Paste links from iOS Safari or Android Chrome to download directly onto your device.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- YouTube & Cloud Cookies Modal -->
+  <div id="cookies-modal" class="modal-overlay hidden">
+    <div class="modal-container cookies-modal-container">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-icon-badge">🍪</div>
+          <div>
+            <h3>YouTube &amp; Cloud Cookies</h3>
+            <p>Bypass YouTube bot checks on cloud servers (Render / AWS)</p>
+          </div>
+        </div>
+        <button id="btn-close-cookies" class="btn-icon-close">&times;</button>
+      </div>
+      <div class="modal-body cookies-modal-body">
+        <div class="cookies-status-card">
+          <div class="status-indicator-wrap">
+            <span class="status-indicator-title">Current Status:</span>
+            <span id="cookies-status-label" class="badge-status-none">No Cookies Set</span>
+          </div>
+          <p class="status-hint">
+            <strong>When are cookies needed?</strong> Only for YouTube when downloading through cloud hosting (like Render). Other platforms (Facebook, TikTok, Instagram, Twitter) work without cookies. When running locally at <a href="http://localhost:8000" target="_blank">http://localhost:8000</a>, YouTube never requires cookies!
+          </p>
+        </div>
+
+        <div class="cookies-input-section">
+          <label for="cookies-textarea" class="cookies-label">
+            <span>Paste Netscape Cookies Text (from browser extension):</span>
+          </label>
+          <textarea id="cookies-textarea" class="cookies-textarea" placeholder="# Netscape HTTP Cookie File&#10;# Exported using 'Get cookies.txt LOCALLY' extension from youtube.com&#10;.youtube.com&#9;TRUE&#9;/&#9;TRUE&#9;1799999999&#9;SID&#9;..."></textarea>
+        </div>
+
+        <div class="cookies-instructions">
+          <h4>💡 How to get YouTube cookies in 1 minute:</h4>
+          <ol>
+            <li>Install the Chrome/Edge extension <strong>"Get cookies.txt LOCALLY"</strong>.</li>
+            <li>Go to <a href="https://youtube.com" target="_blank" rel="noopener">youtube.com</a> while signed in.</li>
+            <li>Click the extension icon and copy/export the cookies text.</li>
+            <li>Paste it here and click <strong>"Save Cookies"</strong>.</li>
+          </ol>
+        </div>
+
+        <div class="modal-actions-footer">
+          <button type="button" id="btn-clear-cookies" class="btn-ghost-danger">Clear Cookies</button>
+          <div class="actions-right">
+            <button type="button" id="btn-cancel-cookies" class="btn-ghost">Close</button>
+            <button type="button" id="btn-save-cookies" class="btn-primary-sm">Save Cookies</button>
           </div>
         </div>
       </div>

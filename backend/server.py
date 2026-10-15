@@ -176,7 +176,7 @@ async def process_video_info(url: str, cookies: Optional[str] = None) -> Dict[st
 
     # 1. Primary Engine: UniversalVideoExtractor (non-blocking thread)
     try:
-        data = await asyncio.to_thread(video_extractor.extract_info, url)
+        data = await asyncio.to_thread(video_extractor.extract_info, url, cookies=cookies)
         if data.get("success"):
             data["type"] = "video"
             data["author"] = {
@@ -252,15 +252,28 @@ async def process_video_info(url: str, cookies: Optional[str] = None) -> Dict[st
         except Exception:
             pass
 
+    # Provide clear, helpful error for YouTube cloud datacenter bot check
+    err_str = str(vid_err or "")
+    if "Sign in to confirm you're not a bot" in err_str:
+        friendly_msg = (
+            "YouTube is blocking requests from cloud datacenter servers (Render/AWS bot protection). "
+            "To download this YouTube video: "
+            "1) Run Omni Extractor locally at http://localhost:8000 (your home network IP is not blocked), or "
+            "2) Click the 'Cookies' button at the top to paste your YouTube cookies, or "
+            "3) Add a cookies.txt file to Render as a Secret File (/etc/secrets/cookies.txt). "
+            "Note: Facebook, TikTok, Instagram, Twitter/X, and other sites work in the cloud without cookies."
+        )
+        raise HTTPException(status_code=400, detail=friendly_msg)
+
     raise HTTPException(
         status_code=400,
         detail=f"Could not extract video from this link: {vid_err or 'Invalid or unsupported link'}"
     )
 
 @app.get("/api/info")
-async def get_info(url: str = Query(..., description="Target video URL")):
+async def get_info(url: str = Query(..., description="Target video URL"), cookies: Optional[str] = Query(None)):
     """Fetch video metadata and available video & audio formats via GET."""
-    return await process_video_info(url)
+    return await process_video_info(url, cookies=cookies)
 
 @app.post("/api/info")
 async def post_info(req: InfoRequest):
@@ -282,6 +295,7 @@ async def download_media(
     format: Optional[str] = Query(None, description="Audio or video format: mp4, mp3, m4a, flac, wav"),
     bitrate: str = Query("320", description="Audio bitrate: 320, 256, 192, 128"),
     title: Optional[str] = Query("download", description="Preferred output filename"),
+    cookies: Optional[str] = Query(None, description="Custom cookies string for authenticated downloads"),
     direct_url: Optional[str] = Query(None, description="Direct URL to stream as file download"),
     filename: Optional[str] = Query(None, description="Direct URL target filename")
 ):
@@ -340,7 +354,8 @@ async def download_media(
                 url,
                 chosen_format,
                 bitrate,
-                out_template
+                out_template,
+                cookies=cookies
             )
 
             if not os.path.exists(final_file):
@@ -361,7 +376,8 @@ async def download_media(
                 video_extractor.download_video_file,
                 url,
                 quality,
-                out_template
+                out_template,
+                cookies=cookies
             )
 
             if not os.path.exists(final_file):

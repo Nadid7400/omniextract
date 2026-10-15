@@ -100,6 +100,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const publicUrlInput = document.getElementById('public-url-input');
   const lanUrlInput = document.getElementById('lan-url-input');
 
+  // Cookies Modal Elements
+  const btnShowCookies = document.getElementById('btn-show-cookies');
+  const cookiesModal = document.getElementById('cookies-modal');
+  const btnCloseCookies = document.getElementById('btn-close-cookies');
+  const btnCancelCookies = document.getElementById('btn-cancel-cookies');
+  const btnSaveCookies = document.getElementById('btn-save-cookies');
+  const btnClearCookies = document.getElementById('btn-clear-cookies');
+  const cookiesTextarea = document.getElementById('cookies-textarea');
+  const cookiesStatusLabel = document.getElementById('cookies-status-label');
+  const cookieStatusDot = document.getElementById('cookie-status-dot');
+
   // Lightbox Elements
   const lightboxModal = document.getElementById('lightbox-modal');
   const lightboxImg = document.getElementById('lightbox-img');
@@ -114,6 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize
   updateHistoryCounter();
   loadNetworkInfo();
+  updateCookieUI();
 
   // Mode Switchers
   btnModeSingle.addEventListener('click', () => setMode('single'));
@@ -240,15 +252,22 @@ document.addEventListener('DOMContentLoaded', () => {
     batchResultsZone.classList.add('hidden');
 
     try {
-      // Call primary /api/info endpoint
-      let response = await fetch(`/api/info?url=${encodeURIComponent(url)}`);
+      const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
+
+      // Call primary /api/info POST endpoint with cookies if present
+      let response = await fetch('/api/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, cookies: savedCookies })
+      });
+
       if (!response.ok) {
-        // Fallback to POST
-        response = await fetch('/api/info', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url })
-        });
+        // Fallback to GET
+        let getUrl = `/api/info?url=${encodeURIComponent(url)}`;
+        if (savedCookies) {
+          getUrl += `&cookies=${encodeURIComponent(savedCookies)}`;
+        }
+        response = await fetch(getUrl);
       }
 
       const data = await response.json();
@@ -489,15 +508,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const rawTitle = currentExtractionData.title || 'media';
     const safeTitle = encodeURIComponent(rawTitle.substring(0, 60));
+    const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
+    const cookieParam = savedCookies ? `&cookies=${encodeURIComponent(savedCookies)}` : '';
     let downloadUrl = '';
 
     if (currentMediaMode === 'video') {
       const quality = selectVideoResolution.value || 'best';
-      downloadUrl = `/api/download?url=${encodeURIComponent(currentExtractionData.url)}&type=video&quality=${quality}&title=${safeTitle}`;
+      downloadUrl = `/api/download?url=${encodeURIComponent(currentExtractionData.url)}&type=video&quality=${quality}&title=${safeTitle}${cookieParam}`;
     } else {
       const val = selectAudioFormat.value || 'mp3:320';
       const [format, bitrate] = val.split(':');
-      downloadUrl = `/api/download?url=${encodeURIComponent(currentExtractionData.url)}&type=audio&format=${format}&bitrate=${bitrate}&title=${safeTitle}`;
+      downloadUrl = `/api/download?url=${encodeURIComponent(currentExtractionData.url)}&type=audio&format=${format}&bitrate=${bitrate}&title=${safeTitle}${cookieParam}`;
     }
 
     // Visual feedback on button
@@ -891,6 +912,76 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('LAN Wi-Fi URL copied to clipboard!');
   });
 
+  // Cookies Modal Events & Logic
+  function updateCookieUI() {
+    const saved = localStorage.getItem('omni_yt_cookies') || '';
+    if (saved.trim().length > 0) {
+      if (cookieStatusDot) {
+        cookieStatusDot.className = 'cookie-dot-active';
+        cookieStatusDot.title = 'YouTube cookies active';
+      }
+      if (cookiesStatusLabel) {
+        cookiesStatusLabel.className = 'badge-status-active';
+        cookiesStatusLabel.textContent = 'Active (Saved)';
+      }
+      if (cookiesTextarea && !cookiesTextarea.value) {
+        cookiesTextarea.value = saved;
+      }
+    } else {
+      if (cookieStatusDot) {
+        cookieStatusDot.className = 'cookie-dot-none';
+        cookieStatusDot.title = 'No cookies saved';
+      }
+      if (cookiesStatusLabel) {
+        cookiesStatusLabel.className = 'badge-status-none';
+        cookiesStatusLabel.textContent = 'No Cookies Set';
+      }
+    }
+  }
+
+  if (btnShowCookies) {
+    btnShowCookies.addEventListener('click', () => {
+      updateCookieUI();
+      cookiesModal.classList.remove('hidden');
+    });
+  }
+
+  if (btnCloseCookies) {
+    btnCloseCookies.addEventListener('click', () => cookiesModal.classList.add('hidden'));
+  }
+  if (btnCancelCookies) {
+    btnCancelCookies.addEventListener('click', () => cookiesModal.classList.add('hidden'));
+  }
+  if (cookiesModal) {
+    cookiesModal.addEventListener('click', (e) => {
+      if (e.target === cookiesModal) cookiesModal.classList.add('hidden');
+    });
+  }
+
+  if (btnSaveCookies) {
+    btnSaveCookies.addEventListener('click', () => {
+      const val = (cookiesTextarea.value || '').trim();
+      if (!val) {
+        localStorage.removeItem('omni_yt_cookies');
+        showToast('Cookies cleared', 'info');
+      } else {
+        localStorage.setItem('omni_yt_cookies', val);
+        showToast('Cookies saved successfully!', 'success');
+      }
+      updateCookieUI();
+      cookiesModal.classList.add('hidden');
+    });
+  }
+
+  if (btnClearCookies) {
+    btnClearCookies.addEventListener('click', () => {
+      localStorage.removeItem('omni_yt_cookies');
+      cookiesTextarea.value = '';
+      updateCookieUI();
+      showToast('Cookies cleared', 'info');
+    });
+  }
+
   // Utilities
   function extractUrlsFromText(text) {
     if (!text) return [];
@@ -901,7 +992,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function showAlert(msg, type = 'error') {
     alertBanner.className = `alert-banner ${type}`;
-    alertBanner.innerHTML = msg;
+    let html = escapeHtml(msg).replace(/\n/g, '<br>');
+    if (msg.includes('YouTube is blocking') || msg.includes('Sign in to confirm') || msg.includes('Cookies')) {
+      html += `<div style="margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <button type="button" class="btn-primary-sm" onclick="document.getElementById('btn-show-cookies').click()">Open Cookies Settings</button>
+        <a href="http://localhost:8000" target="_blank" class="btn-secondary-sm" style="text-decoration:none;">Open Local Instance</a>
+      </div>`;
+    }
+    alertBanner.innerHTML = html;
     alertBanner.classList.remove('hidden');
   }
 
