@@ -254,14 +254,14 @@ async def process_video_info(url: str, cookies: Optional[str] = None) -> Dict[st
 
     # Provide clear, helpful error for YouTube cloud datacenter bot check
     err_str = str(vid_err or "")
-    if "Sign in to confirm you're not a bot" in err_str:
+    if ("confirm you" in err_str and "bot" in err_str) or "Sign in to confirm" in err_str or "cookies-from-browser" in err_str:
         friendly_msg = (
-            "YouTube is blocking requests from cloud datacenter servers (Render/AWS bot protection). "
-            "To download this YouTube video: "
-            "1) Run Omni Extractor locally at http://localhost:8000 (your home network IP is not blocked), or "
-            "2) Click the 'Cookies' button at the top to paste your YouTube cookies, or "
-            "3) Add a cookies.txt file to Render as a Secret File (/etc/secrets/cookies.txt). "
-            "Note: Facebook, TikTok, Instagram, Twitter/X, and other sites work in the cloud without cookies."
+            "YouTube is blocking requests from cloud datacenter servers (Render/AWS bot protection).\n\n"
+            "To download this YouTube video:\n"
+            "1. Run Omni Extractor locally on your PC at http://localhost:8000 (your home network IP is not blocked).\n"
+            "2. Or click the 'Cookies' button at the top right to paste your YouTube cookies.\n"
+            "3. Or add a cookies.txt file to Render as a Secret File (/etc/secrets/cookies.txt).\n\n"
+            "Note: Facebook, TikTok, Instagram, Twitter/X, and 1,500+ other platforms work in the cloud without cookies!"
         )
         raise HTTPException(status_code=400, detail=friendly_msg)
 
