@@ -1,7 +1,7 @@
 /**
- * OmniExtract — Universal Any Video Downloader
- * Frontend Client Controller v2.0
- * Supports 1080p to 144p Video Downloads & Studio Audio (up to 320 kbps MP3)
+ * Omni Extractor — Universal Video & Audio Downloader
+ * Frontend Client Controller v2.1
+ * Dynamic Resolution Dropdowns, Audio Formats, and Clean Download Triggers
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -44,9 +44,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const badgeMaxRes = document.getElementById('badge-max-res');
   const badgeDuration = document.getElementById('badge-duration');
   const badgeViews = document.getElementById('badge-views');
+  const badgeAudioRes = document.getElementById('badge-audio-res');
   const btnQuickDownloadBest = document.getElementById('btn-quick-download-best');
   const btnQuickDownloadAudio = document.getElementById('btn-quick-download-audio');
   const btnOpenOriginal = document.getElementById('btn-open-original');
+
+  // Interactive Quick Download Bar Elements
+  const btnToggleVideo = document.getElementById('btn-toggle-video');
+  const btnToggleAudio = document.getElementById('btn-toggle-audio');
+  const downloadModeHint = document.getElementById('download-mode-hint');
+  const groupVideoDropdown = document.getElementById('group-video-dropdown');
+  const groupAudioDropdown = document.getElementById('group-audio-dropdown');
+  const selectVideoResolution = document.getElementById('select-video-resolution');
+  const selectAudioFormat = document.getElementById('select-audio-format');
+  const btnLiveDownload = document.getElementById('btn-live-download');
+  const liveDownloadLabel = document.getElementById('live-download-label');
+  const liveDownloadSpinner = document.getElementById('live-download-spinner');
 
   // Tabs Elements
   const tabBtns = document.querySelectorAll('.tab-btn');
@@ -96,6 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // State
   let currentExtractionData = null;
+  let currentMediaMode = 'video'; // 'video' | 'audio'
 
   // Initialize
   updateHistoryCounter();
@@ -218,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
     performBatchExtraction(text, urls);
   });
 
-  // Perform Single Video Extraction
+  // Perform Single Video Extraction via /api/info
   async function performExtraction(url) {
     setLoading(true);
     hideAlert();
@@ -226,23 +240,29 @@ document.addEventListener('DOMContentLoaded', () => {
     batchResultsZone.classList.add('hidden');
 
     try {
-      const response = await fetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      });
+      // Call primary /api/info endpoint
+      let response = await fetch(`/api/info?url=${encodeURIComponent(url)}`);
+      if (!response.ok) {
+        // Fallback to POST
+        response = await fetch('/api/info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+      }
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to extract video information from this URL.');
+        throw new Error(data.detail || data.error || 'Failed to extract video information from this URL.');
       }
 
       currentExtractionData = data;
       renderResults(data);
+      populateDynamicDropdowns(data);
       saveToHistory(data);
       updateHistoryCounter();
-      showToast('Video extracted successfully!');
+      showToast('Video analyzed successfully!');
 
       setTimeout(() => {
         resultsZone.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -259,12 +279,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isLoading) {
       btnSubmit.disabled = true;
       spinner.classList.remove('hidden');
-      btnText.textContent = 'Extracting Video...';
+      btnText.textContent = 'Analyzing Link...';
       btnArrow.classList.add('hidden');
     } else {
       btnSubmit.disabled = false;
       spinner.classList.add('hidden');
-      btnText.textContent = 'Download Video';
+      btnText.textContent = 'Analyze Link';
       btnArrow.classList.remove('hidden');
     }
   }
@@ -284,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Batch extraction failed.');
+        throw new Error(data.detail || data.error || 'Batch extraction failed.');
       }
 
       renderBatchResults(data);
@@ -344,10 +364,10 @@ document.addEventListener('DOMContentLoaded', () => {
       avatarFallback.textContent = '▶';
     }
 
-    // Quick download buttons
+    // Quick download buttons (using clean /api/download endpoint)
     const safeTitle = encodeURIComponent((data.title || 'video').substring(0, 50));
-    btnQuickDownloadBest.href = `/api/download-video?url=${encodeURIComponent(data.url)}&quality=best&title=${safeTitle}`;
-    btnQuickDownloadAudio.href = `/api/download-audio?url=${encodeURIComponent(data.url)}&bitrate=320&title=${safeTitle}`;
+    btnQuickDownloadBest.href = `/api/download?url=${encodeURIComponent(data.url)}&type=video&quality=best&title=${safeTitle}`;
+    btnQuickDownloadAudio.href = `/api/download?url=${encodeURIComponent(data.url)}&type=audio&format=mp3&bitrate=320&title=${safeTitle}`;
 
     // Render Video Formats Tab
     renderVideoFormats(data);
@@ -371,11 +391,157 @@ document.addEventListener('DOMContentLoaded', () => {
     switchTab('tab-videos');
   }
 
-  // Render Video Downloads (1080p, 720p, 480p, 360p, 240p, 144p, Best)
+  // -------------------------------------------------------------
+  // Dynamic Resolution & Audio Dropdown System
+  // -------------------------------------------------------------
+  function populateDynamicDropdowns(data) {
+    // 1. Populate Video Resolutions Dropdown
+    selectVideoResolution.innerHTML = '';
+    const videoFormats = data.video_downloads || [];
+
+    if (videoFormats.length > 0) {
+      videoFormats.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.quality;
+        const sizeInfo = v.filesize ? ` (~${v.filesize})` : '';
+        const recInfo = v.is_best ? ' ★ Best Quality' : '';
+        opt.textContent = `${v.resolution}${sizeInfo}${recInfo}`;
+        selectVideoResolution.appendChild(opt);
+      });
+    } else {
+      const opt = document.createElement('option');
+      opt.value = 'best';
+      opt.textContent = 'Best Quality (Auto-Detect)';
+      selectVideoResolution.appendChild(opt);
+    }
+
+    // 2. Populate Audio Formats & Bitrates Dropdown
+    selectAudioFormat.innerHTML = '';
+    const audioFormats = data.audio_downloads || [];
+
+    if (audioFormats.length > 0) {
+      audioFormats.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = `${a.codec || 'mp3'}:${a.bitrate || '320'}`;
+        const bestInfo = a.is_best ? ' ★ Recommended' : '';
+        opt.textContent = `${a.label}${bestInfo}`;
+        selectAudioFormat.appendChild(opt);
+      });
+    } else {
+      const opt = document.createElement('option');
+      opt.value = 'mp3:320';
+      opt.textContent = 'MP3 Studio (320 kbps CBR)';
+      selectAudioFormat.appendChild(opt);
+    }
+
+    // Reset mode to Video
+    setMediaDownloadMode('video');
+  }
+
+  // Video / Audio Mode Switcher in Quick Download Bar
+  btnToggleVideo.addEventListener('click', () => setMediaDownloadMode('video'));
+  btnToggleAudio.addEventListener('click', () => setMediaDownloadMode('audio'));
+
+  function setMediaDownloadMode(mode) {
+    currentMediaMode = mode;
+    if (mode === 'video') {
+      btnToggleVideo.classList.add('active');
+      btnToggleAudio.classList.remove('active', 'active-audio');
+      groupVideoDropdown.classList.remove('hidden');
+      groupAudioDropdown.classList.add('hidden');
+      btnLiveDownload.classList.remove('btn-audio-mode');
+      downloadModeHint.textContent = 'Live dynamic resolutions detected for this video:';
+      updateLiveDownloadButtonText();
+    } else {
+      btnToggleAudio.classList.add('active', 'active-audio');
+      btnToggleVideo.classList.remove('active');
+      groupAudioDropdown.classList.remove('hidden');
+      groupVideoDropdown.classList.add('hidden');
+      btnLiveDownload.classList.add('btn-audio-mode');
+      downloadModeHint.textContent = 'Master studio audio extraction (up to 320 kbps MP3, M4A, FLAC, WAV):';
+      updateLiveDownloadButtonText();
+    }
+  }
+
+  selectVideoResolution.addEventListener('change', updateLiveDownloadButtonText);
+  selectAudioFormat.addEventListener('change', updateLiveDownloadButtonText);
+
+  function updateLiveDownloadButtonText() {
+    if (currentMediaMode === 'video') {
+      const selOpt = selectVideoResolution.options[selectVideoResolution.selectedIndex];
+      const optText = selOpt ? selOpt.textContent.split('(')[0].trim() : 'Video';
+      liveDownloadLabel.textContent = `Download ${optText} MP4`;
+    } else {
+      const selOpt = selectAudioFormat.options[selectAudioFormat.selectedIndex];
+      const optText = selOpt ? selOpt.textContent.split('(')[0].trim() : 'Audio';
+      liveDownloadLabel.textContent = `Download ${optText}`;
+    }
+  }
+
+  // Clean Download Trigger Execution
+  btnLiveDownload.addEventListener('click', () => triggerLiveDownload());
+
+  function triggerLiveDownload() {
+    if (!currentExtractionData || !currentExtractionData.url) {
+      showToast('No active video to download.', 'warning');
+      return;
+    }
+
+    const rawTitle = currentExtractionData.title || 'media';
+    const safeTitle = encodeURIComponent(rawTitle.substring(0, 60));
+    let downloadUrl = '';
+
+    if (currentMediaMode === 'video') {
+      const quality = selectVideoResolution.value || 'best';
+      downloadUrl = `/api/download?url=${encodeURIComponent(currentExtractionData.url)}&type=video&quality=${quality}&title=${safeTitle}`;
+    } else {
+      const val = selectAudioFormat.value || 'mp3:320';
+      const [format, bitrate] = val.split(':');
+      downloadUrl = `/api/download?url=${encodeURIComponent(currentExtractionData.url)}&type=audio&format=${format}&bitrate=${bitrate}&title=${safeTitle}`;
+    }
+
+    // Visual feedback on button
+    btnLiveDownload.disabled = true;
+    liveDownloadSpinner.classList.remove('hidden');
+    const originalText = liveDownloadLabel.textContent;
+    liveDownloadLabel.textContent = 'Server processing...';
+
+    showToast(`⚡ Server is converting ${currentMediaMode === 'video' ? 'video' : 'audio'}. Your download will pop up shortly!`);
+
+    // 1. Trigger via hidden iframe (most reliable for file downloads without page disruption)
+    const dlFrame = document.createElement('iframe');
+    dlFrame.style.display = 'none';
+    dlFrame.src = downloadUrl;
+    document.body.appendChild(dlFrame);
+
+    // 2. Also trigger via anchor download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', '');
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => link.remove(), 5000);
+
+    // Restore button state after reasonable time
+    setTimeout(() => {
+      btnLiveDownload.disabled = false;
+      liveDownloadSpinner.classList.add('hidden');
+      liveDownloadLabel.textContent = originalText;
+    }, 6000);
+
+    setTimeout(() => {
+      dlFrame.remove();
+    }, 120000);
+  }
+
+  // -------------------------------------------------------------
+  // Render Video Formats Grid Tab
+  // -------------------------------------------------------------
   function renderVideoFormats(data) {
     videoFormatsGrid.innerHTML = '';
     const formats = data.video_downloads || [];
-    const safeTitle = encodeURIComponent((data.title || 'video').substring(0, 50));
+    const safeTitle = encodeURIComponent((data.title || 'video').substring(0, 60));
 
     if (formats.length === 0) {
       videoFormatsGrid.innerHTML = `<p class="empty-state">No direct video streams discovered. Try downloading best quality directly.</p>`;
@@ -387,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
       card.className = `format-card ${f.is_best ? 'best-card' : ''}`;
 
       const resBadgeClass = f.is_best ? 'format-pill pill-best' : 'format-pill';
-      const downloadLink = `/api/download-video?url=${encodeURIComponent(data.url)}&quality=${f.quality}&title=${safeTitle}`;
+      const downloadLink = `/api/download?url=${encodeURIComponent(data.url)}&type=video&quality=${f.quality}&title=${safeTitle}`;
 
       card.innerHTML = `
         <div>
@@ -401,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
         <div>
-          <a href="${downloadLink}" class="btn-format-download" download>
+          <a href="${downloadLink}" class="btn-format-download" download target="_blank">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
@@ -415,37 +581,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Render Audio Downloads (320k, 256k, 192k, 128k MP3)
+  // -------------------------------------------------------------
+  // Render Audio Formats Grid Tab
+  // -------------------------------------------------------------
   function renderAudioFormats(data) {
     audioFormatsGrid.innerHTML = '';
     const audios = data.audio_downloads || [];
-    const safeTitle = encodeURIComponent((data.title || 'audio').substring(0, 50));
+    const safeTitle = encodeURIComponent((data.title || 'audio').substring(0, 60));
 
     audios.forEach(a => {
       const card = document.createElement('div');
       card.className = `format-card ${a.is_best ? 'best-card' : ''}`;
 
-      const downloadLink = `/api/download-audio?url=${encodeURIComponent(data.url)}&bitrate=${a.bitrate}&title=${safeTitle}`;
+      const codec = a.codec || 'mp3';
+      const bitrate = a.bitrate || '320';
+      const downloadLink = `/api/download?url=${encodeURIComponent(data.url)}&type=audio&format=${codec}&bitrate=${bitrate}&title=${safeTitle}`;
 
       card.innerHTML = `
         <div>
           <div class="format-card-top">
             <span class="format-res-name">${a.label}</span>
-            <span class="format-pill pill-audio">${a.badge || 'MP3'}</span>
+            <span class="format-pill pill-audio">${a.badge || codec.toUpperCase()}</span>
           </div>
           <div class="format-meta-row">
-            <span>Codec: <strong>MP3 Audio</strong></span>
-            <span>Bitrate: <strong>${a.bitrate} kbps</strong></span>
+            <span>Codec: <strong>${codec.toUpperCase()}</strong></span>
+            <span>Quality: <strong>${bitrate === 'lossless' ? 'Lossless Hi-Res' : bitrate === 'uncompressed' ? 'PCM 16-bit' : `${bitrate} kbps`}</strong></span>
           </div>
+          ${a.desc ? `<p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">${a.desc}</p>` : ''}
         </div>
         <div>
-          <a href="${downloadLink}" class="btn-format-download btn-audio" download>
+          <a href="${downloadLink}" class="btn-format-download btn-audio" download target="_blank">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 18V5l12-2v13"></path>
               <circle cx="6" cy="18" r="3"></circle>
               <circle cx="18" cy="16" r="3"></circle>
             </svg>
-            <span>Download ${a.badge} MP3</span>
+            <span>Download ${a.badge}</span>
           </a>
         </div>
       `;
@@ -453,20 +624,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Render Player Tab
+  // Render Watch Preview Player
   function renderPlayerTab(data) {
     if (data.preview_url) {
       playerPreviewVideo.src = data.preview_url;
-      playerPreviewVideo.parentElement.classList.remove('hidden');
+      playerPreviewVideo.classList.remove('hidden');
       playerEmptyNote.classList.add('hidden');
     } else {
+      playerPreviewVideo.pause();
       playerPreviewVideo.removeAttribute('src');
-      playerPreviewVideo.parentElement.classList.add('hidden');
+      playerPreviewVideo.classList.add('hidden');
       playerEmptyNote.classList.remove('hidden');
     }
   }
 
-  // Render Images Tab (Thumbnails / Posters)
+  // Render Thumbnails & Poster
   function renderImagesTab(images) {
     imagesGrid.innerHTML = '';
     if (!images || images.length === 0) {
@@ -479,23 +651,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const card = document.createElement('div');
       card.className = 'gallery-card';
 
-      const directUrl = img.url || img;
-      const downloadUrl = `/api/download?url=${encodeURIComponent(directUrl)}&filename=poster_${idx+1}.jpg`;
+      const directUrl = typeof img === 'string' ? img : img.url;
+      const proxyUrl = (typeof img === 'object' && img.proxy_url) ? img.proxy_url : directUrl;
+      const downloadUrl = `/api/download?direct_url=${encodeURIComponent(directUrl)}&filename=poster_${idx+1}.jpg`;
+      const label = (typeof img === 'object' && img.label) ? img.label : `Poster #${idx+1}`;
 
       card.innerHTML = `
         <div class="card-img-wrap">
-          <img src="${img.proxy_url || directUrl}" alt="Video Poster" loading="lazy" referrerpolicy="no-referrer">
-          <div class="img-overlay-zoom">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              <line x1="11" y1="8" x2="11" y2="14"></line>
-              <line x1="8" y1="11" x2="14" y2="11"></line>
-            </svg>
+          <img src="${proxyUrl}" alt="${label}" referrerpolicy="no-referrer" loading="lazy">
+          <div class="img-overlay">
+            <span>Enlarge</span>
           </div>
         </div>
-        <div class="card-info-bar">
-          <span class="card-img-label">${img.label || `Poster #${idx+1}`}</span>
+        <div class="gallery-card-body">
+          <span class="gallery-img-type">${label}</span>
           <div class="card-action-btns">
             <a href="${downloadUrl}" class="btn-card-action" title="Download Poster" download>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -508,7 +677,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
-      card.querySelector('.card-img-wrap').addEventListener('click', () => openLightbox(directUrl, downloadUrl));
+      card.querySelector('.card-img-wrap').addEventListener('click', () => openLightbox(proxyUrl, downloadUrl));
       imagesGrid.appendChild(card);
     });
   }
@@ -543,8 +712,8 @@ document.addEventListener('DOMContentLoaded', () => {
       card.className = 'chapter-card';
 
       const safeTitle = encodeURIComponent((item.title || `video_${idx+1}`).substring(0, 50));
-      const downloadVid = `/api/download-video?url=${encodeURIComponent(item.url)}&quality=best&title=${safeTitle}`;
-      const downloadAud = `/api/download-audio?url=${encodeURIComponent(item.url)}&bitrate=320&title=${safeTitle}`;
+      const downloadVid = `/api/download?url=${encodeURIComponent(item.url)}&type=video&quality=best&title=${safeTitle}`;
+      const downloadAud = `/api/download?url=${encodeURIComponent(item.url)}&type=audio&format=mp3&bitrate=320&title=${safeTitle}`;
 
       card.innerHTML = `
         <div class="chapter-header" style="cursor:default;">
@@ -697,7 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.public_url) {
         publicUrlInput.value = data.public_url;
       } else {
-        publicUrlInput.value = 'https://omniextract-fb.onrender.com';
+        publicUrlInput.value = window.location.origin;
       }
     } catch {}
   }

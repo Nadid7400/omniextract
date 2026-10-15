@@ -1,70 +1,93 @@
-# ⚡ OmniExtract — Facebook Content Extractor (No Login Required)
+# ⚡ Omni Extractor — Universal Video & Audio Downloader
 
-A powerful, privacy-first tool to extract **post texts**, **high-resolution images**, and **MP4 video streams** from public Facebook links with **zero login**, **zero cookies**, and **no credentials**.
+A high-performance universal media extraction engine powered by **FastAPI**, **yt-dlp**, and **FFmpeg** (with automatic `imageio-ffmpeg` fallback).
 
-Supports single posts as well as **Batch Extraction** for full story/novel series (e.g. 90+ chapter posts).
+Extract high-resolution video streams (**4K, 1440p, 1080p, 720p, 480p, 360p**) and master studio audio (**up to 320 kbps CBR MP3, M4A, FLAC, WAV**) from **YouTube, Shorts, TikTok, Instagram Reels, Facebook, X (Twitter), Reddit, Vimeo, Dailymotion, Twitch**, and 1,500+ platforms.
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Nadid7400/omniextract)
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template?template=https://github.com/Nadid7400/omniextract)
 
 ---
 
 ## ✨ Features
 
-- 📝 **Full Post Text & Long Novels**: Extracts complete un-truncated post body text, statuses, descriptions, and hashtags across all languages (including Bengali, Arabic, Hindi, CJK, etc.).
-- 📚 **Batch Series Extraction**: Paste an entire list of 90+ Facebook links or numbered chapters at once.
-- 📖 **Compile Novel to .TXT**: One-click download of all extracted parts compiled into a single clean story file (`Compiled_Novel.txt`).
-- 🖼️ **High-Definition Images**: Finds all `scontent` CDN photo URLs, multi-image albums, and cover photos.
-- 🎬 **Video & Reel Streams**: Extracts playable MP4 streams (HD 1080p, 720p, SD 360p) with duration and format info.
-- 🔓 **Extract Locked & Private Posts**: Multi-strategy fallback (Mobile UA, mbasic engine, oEmbed API, and Web Archives). For closed groups or friends-only profiles, optionally configure session cookies (`c_user` + `xs`) to extract complete text, original photos, and video assets.
-- 📦 **One-Click .ZIP Bundle**: Packages post text (`.txt`), metadata (`metadata.json`), and all images packed neatly into a single ZIP file.
-- 🛡️ **CDN Proxy & Referer Shield**: Direct in-browser viewing and downloading without Facebook's cross-origin 403 blocks.
-- 💻 **Dual Interfaces**:
-  - **Sleek Web App**: Dark-mode glassmorphism interface with Single & Batch mode tabs, zoom lightbox, and in-app video player.
-  - **Terminal CLI**: Command-line tool for automated batch archiving and scripting.
+- 🎬 **Dynamic Video Resolutions**: Automatically parses all available video resolutions (4K / 2160p, 2K / 1440p, 1080p Full HD, 720p, 480p, 360p, 240p, 144p) with file size estimates and bitrates.
+- 🎵 **Studio Audio Transcoding (Up to 320 kbps CBR)**:
+  - **MP3**: 320 kbps (Master Studio Quality), 256 kbps (Hi-Fi), 192 kbps (CD Quality), 128 kbps (Compact).
+  - **M4A / AAC**: Original source audio track.
+  - **FLAC**: Lossless Hi-Res studio audio.
+  - **WAV**: Uncompressed 16-bit PCM broadcast audio.
+- 🚀 **Auto-Detecting FFmpeg Engine**: Automatically detects system FFmpeg or falls back directly to bundled `imageio-ffmpeg` binaries — zero manual path configuration required.
+- 🌐 **1,500+ Platforms Supported**: YouTube, YouTube Shorts, TikTok (no watermark), Instagram Reels, Facebook Videos/Reels, X/Twitter, Reddit, Vimeo, and more.
+- 🧹 **Automatic Temp Folder Cleanup**: Background task automatically cleans up temporary download directories after streaming finishes, ensuring zero disk leaks.
+- 📱 **Interactive Liquid Glass UI**:
+  - Live video/audio mode switcher.
+  - Dynamically populated resolution dropdown.
+  - Single-click clean download triggers with instant visual feedback.
+  - In-browser HTML5 video preview player.
+  - Local history storage and network share modal for LAN / mobile access.
+- 📦 **Container & Cloud Ready**: Production-ready `Dockerfile` and `render.yaml` for 1-click deployments on Docker, Render, Heroku, or VPS.
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Launch the Web Application
+### 1. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
 
-Simply run:
-```powershell
+### 2. Launch the Application
+```bash
 python run.py
 ```
-This automatically starts the local server at `http://127.0.0.1:8000` and opens the web application in your default browser.
+This automatically starts the server at `http://localhost:8000` and opens your default browser.
 
-- **Single Mode**: Paste any post, reel, or photo URL.
-- **Batch Mode**: Paste multiple links, numbered lists (e.g. `1.https://... 2.https://...`), or multi-line URLs. Click **Extract All Links** and download the compiled novel with one click!
+Optional flags:
+```bash
+# Specify custom port
+python run.py --port 8080
 
-### 2. Run via Command Line (CLI)
-
-#### Single Link:
-```powershell
-# Print extraction summary in terminal
-python cli.py "https://www.facebook.com/share/p/1DyLPPg1BQ/"
-
-# Download all assets to a folder
-python cli.py "https://www.facebook.com/share/p/1DyLPPg1BQ/" --download --output-dir ./extracted_media
-```
-
-#### Batch Extraction (Full Novel / 90+ Chapters):
-```powershell
-# Extract a batch of links and compile into a single novel document
-python cli.py --batch-text "1.https://... 2.https://..." --compile-txt my_novel.txt
-
-# Or from a text file containing Facebook links:
-python cli.py --batch-file my_links.txt --compile-txt full_series.txt --download
+# Share globally via public tunnel
+python run.py --public
 ```
 
 ---
 
-## 🛠️ API Endpoints
+## 🛠️ API Reference
 
-- **`POST /api/extract`**: Extract single URL (`{"url": "..."}`)
-- **`POST /api/extract-batch`**: Batch extract multiple URLs (`{"raw_text": "...", "urls": [...]}`)
-- **`POST /api/download-compiled-txt`**: Compiles chapters into a single `.txt` file.
-- **`GET /api/proxy?url=<CDN_URL>`**: Streams media directly with anti-referer bypass.
-- **`GET /api/download?url=<CDN_URL>&filename=photo.jpg`**: Triggers immediate browser file download.
-- **`POST /api/download-zip`**: Assembles a zip archive with texts and images on the fly.
+### 1. `GET /api/info` or `POST /api/info`
+Fetch metadata and all available video resolutions and audio formats.
+- **Query Params / JSON Body**:
+  - `url`: Video URL (e.g. `https://www.youtube.com/watch?v=...`)
+- **Returns**: Video title, uploader, thumbnail, duration, platform info, dynamic `video_downloads` list, and `audio_downloads` list.
+
+### 2. `GET /api/download`
+Download media file with automatic temporary cleanup upon stream completion.
+- **Parameters**:
+  - `url`: Target video URL
+  - `type`: `video` or `audio` (default: `video`)
+  - `quality`: `best`, `2160`, `1440`, `1080`, `720`, `480`, `360`, etc. (for video)
+  - `format`: `mp4` (video) or `mp3`, `m4a`, `flac`, `wav` (audio)
+  - `bitrate`: `320`, `256`, `192`, `128` (for audio)
+  - `title`: Preferred file title
+
+### 3. `POST /api/extract-batch`
+Extract multiple links at once from text or URL list.
+
+### 4. `GET /api/network-info`
+Returns local LAN IP and public tunnel status for cross-device access.
+
+---
+
+## 🐳 Docker Deployment
+
+Build and run with Docker:
+```bash
+docker build -t omniextract .
+docker run -p 8000:8000 omniextract
+```
+
+---
+
+## 📄 License
+MIT License.

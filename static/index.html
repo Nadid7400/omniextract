@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OmniExtract — Universal Any Video & Audio Downloader (1080p to 144p | 320 kbps MP3)</title>
-  <meta name="description" content="Download videos from YouTube, TikTok, Facebook, Instagram, Twitter/X, Adult Websites (18+), and 1,000+ platforms in full quality (1080p to 144p) or studio MP3 audio (up to 320 kbps).">
+  <title>Omni Extractor — Universal Video &amp; Audio Downloader</title>
+  <meta name="description" content="Download videos in full quality (4K, 1080p to 144p) and studio audio (up to 320 kbps MP3, M4A, FLAC, WAV) from YouTube, Shorts, TikTok, Instagram Reels, Facebook, X, and 1,500+ platforms.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <!-- Ambient liquid background glow stage (Hardware accelerated & isolated) -->
+  <!-- Ambient liquid background glow stage -->
   <div class="bg-stage" aria-hidden="true">
     <div class="liquid-mesh-background"></div>
     <div class="glow-orb orb-primary"></div>
@@ -31,8 +31,8 @@
           </svg>
         </div>
         <div class="brand-text">
-          <span class="brand-title">OmniExtract <span class="badge-tag">Video v2.0</span></span>
-          <span class="brand-subtitle">Universal Video &amp; Audio Downloader (1,000+ Platforms)</span>
+          <span class="brand-title">Omni Extractor <span class="badge-tag">v2.1</span></span>
+          <span class="brand-subtitle">Universal Video &amp; Audio Downloader (1,500+ Platforms)</span>
         </div>
       </div>
 
@@ -45,7 +45,7 @@
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
             <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
           </svg>
-          <span>Share / Public</span>
+          <span>Share / Access</span>
           <span id="share-live-pill" class="badge-live-dot">LIVE</span>
         </button>
 
@@ -60,35 +60,35 @@
       </div>
     </header>
 
-    <!-- Main Hero Extraction Zone -->
+    <!-- Main Hero Zone -->
     <main class="main-content">
       <section class="hero-section">
         <div class="hero-pill">
           <span class="pulse-dot"></span>
-          <span>100% Free &bull; No Watermark &bull; 1080p to 144p Full Quality &bull; Up to 320 kbps MP3 &bull; 1,000+ Sites</span>
+          <span>100% Free &bull; No Watermark &bull; Dynamic 4K / 1080p &bull; 320 kbps MP3 / FLAC / WAV &bull; 1,500+ Sites</span>
         </div>
         <h1 class="hero-heading">
-          Download <span class="gradient-text">Any Video</span> from Any Platform
+          Extract <span class="gradient-text">Video &amp; Audio</span> from Any Platform
         </h1>
         <p class="hero-subheading">
-          Download videos in full quality (1080p, 720p, 480p, 360p, 240p, 144p) and studio MP3 audio (up to 320 kbps) from YouTube, TikTok, Facebook, Instagram, Twitter/X, Adult Websites (18+), and more.
+          Download high-resolution video (4K, 1080p to 144p) or master studio audio (up to 320 kbps CBR MP3, M4A, FLAC, WAV) from YouTube, Shorts, TikTok, Instagram Reels, Facebook, X/Twitter, and more.
         </p>
 
-        <!-- Mode Toggle -->
+        <!-- Mode Toggle Bar -->
         <div class="mode-toggle-bar">
           <button type="button" class="mode-tab-btn active" id="btn-mode-single">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="23 7 16 12 23 17 23 7"></polygon>
               <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
             </svg>
-            <span>Single Video Link</span>
+            <span>Single Link</span>
           </button>
           <button type="button" class="mode-tab-btn" id="btn-mode-batch">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
               <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
             </svg>
-            <span>Batch Mode (Multiple Video Links)</span>
+            <span>Batch Mode (Multi-Links)</span>
             <span class="batch-badge">Multi</span>
           </button>
         </div>
@@ -106,8 +106,8 @@
             <input 
               type="text" 
               id="fb-url-input" 
-              name="fbUrl"
-              placeholder="Paste video link (YouTube, TikTok, Facebook, Instagram, Twitter/X, Adult sites, etc)..."
+              name="mediaUrl"
+              placeholder="Paste video link (YouTube, Shorts, TikTok, Instagram, Facebook, X, etc)..."
               autocomplete="off"
               spellcheck="false"
               required
@@ -126,7 +126,7 @@
               </svg>
             </button>
             <button type="submit" id="btn-extract-submit" class="btn-primary">
-              <span class="btn-text">Download Video</span>
+              <span class="btn-text">Analyze Link</span>
               <svg class="btn-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <line x1="5" y1="12" x2="19" y2="12"></line>
                 <polyline points="12 5 19 12 12 19"></polyline>
@@ -141,7 +141,7 @@
               <textarea 
                 id="batch-urls-input"
                 rows="6"
-                placeholder="Paste multiple video URLs here (one per line, or space-separated from YouTube, TikTok, Facebook, Adult sites, etc)..."
+                placeholder="Paste multiple video URLs here (one per line, or space-separated from YouTube, TikTok, Facebook, etc)..."
                 spellcheck="false"
               ></textarea>
             </div>
@@ -170,14 +170,17 @@
           <div class="samples-bar" id="single-samples-bar">
             <span class="samples-label">Quick Test Platforms:</span>
             <div class="sample-tags">
-              <button type="button" class="sample-btn" data-url="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
-                <span>YouTube (4K / 1080p)</span>
+              <button type="button" class="sample-btn" data-url="https://www.youtube.com/watch?v=aqz-KE-bpKQ">
+                <span>YouTube 4K</span>
+              </button>
+              <button type="button" class="sample-btn" data-url="https://www.youtube.com/shorts/51Q8K8vQW3U">
+                <span>YouTube Shorts</span>
               </button>
               <button type="button" class="sample-btn" data-url="https://www.facebook.com/share/r/15fHqU3h9x/">
-                <span>Facebook Reel / Video</span>
+                <span>Facebook Reel</span>
               </button>
               <button type="button" class="sample-btn" data-url="https://www.tiktok.com/@tiktok/video/7106594312292453678">
-                <span>TikTok (No Watermark)</span>
+                <span>TikTok</span>
               </button>
               <button type="button" class="sample-btn" data-url="https://www.instagram.com/reels/">
                 <span>Instagram Reel</span>
@@ -192,7 +195,7 @@
 
       <!-- Single Extraction Results Zone -->
       <section id="results-zone" class="results-zone hidden">
-        <!-- Results Header Overview -->
+        <!-- Results Header Overview Card -->
         <div class="result-header-card">
           <div class="post-meta-profile">
             <div class="author-avatar-wrap">
@@ -203,7 +206,7 @@
               <h2 id="author-name" class="author-name">Video Channel / Creator</h2>
               <p id="post-title" class="post-title-text"></p>
               <div class="content-badges">
-                <span id="badge-platform" class="type-badge" style="background: linear-gradient(135deg, #e11d48, #991b1b);">YouTube</span>
+                <span id="badge-platform" class="type-badge">Platform</span>
                 <span id="badge-max-res" class="stat-badge" style="border-color: rgba(244, 63, 94, 0.5); color: #fda4af;">1080p Full HD</span>
                 <span id="badge-duration" class="stat-badge">0:00</span>
                 <span id="badge-views" class="stat-badge">0 views</span>
@@ -218,7 +221,7 @@
                 <polygon points="23 7 16 12 23 17 23 7"></polygon>
                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
               </svg>
-              <span>Download 1080p MP4</span>
+              <span>Download Best MP4</span>
             </a>
             <a id="btn-quick-download-audio" href="#" class="btn-zip-download" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -239,6 +242,71 @@
           </div>
         </div>
 
+        <!-- NEW: Dedicated Interactive Media Downloader Bar -->
+        <div class="quick-download-bar">
+          <div class="download-bar-header">
+            <div class="media-mode-switcher">
+              <button type="button" id="btn-toggle-video" class="media-mode-btn active">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                </svg>
+                <span>Video (MP4)</span>
+              </button>
+              <button type="button" id="btn-toggle-audio" class="media-mode-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span>Audio (Studio Quality)</span>
+              </button>
+            </div>
+            <span class="download-bar-hint" id="download-mode-hint">Live dynamic resolutions detected for this video:</span>
+          </div>
+
+          <div class="download-bar-row">
+            <!-- Dynamic Video Resolutions Dropdown -->
+            <div class="dropdown-group" id="group-video-dropdown">
+              <div class="select-wrapper">
+                <select id="select-video-resolution" class="format-select" aria-label="Select Video Resolution">
+                  <option value="best">Best Quality (Auto)</option>
+                </select>
+                <div class="select-arrow">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic Audio Format & Bitrate Dropdown -->
+            <div class="dropdown-group hidden" id="group-audio-dropdown">
+              <div class="select-wrapper">
+                <select id="select-audio-format" class="format-select" aria-label="Select Audio Format">
+                  <option value="mp3-320">MP3 Studio (320 kbps CBR)</option>
+                </select>
+                <div class="select-arrow">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Clean Download Trigger Button -->
+            <button type="button" id="btn-live-download" class="btn-trigger-action">
+              <svg class="trigger-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span id="live-download-label">Download Video</span>
+              <div class="spinner-sm hidden" id="live-download-spinner"></div>
+            </button>
+          </div>
+        </div>
+
         <!-- Tabbed Display Controls -->
         <div class="tabs-nav">
           <button class="tab-btn active" data-tab="tab-videos" id="tab-btn-videos">
@@ -246,7 +314,7 @@
               <polygon points="23 7 16 12 23 17 23 7"></polygon>
               <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
             </svg>
-            <span>🎬 Video Formats (1080p - 144p)</span>
+            <span>🎬 All Video Resolutions</span>
           </button>
 
           <button class="tab-btn" data-tab="tab-audio" id="tab-btn-audio">
@@ -255,7 +323,7 @@
               <circle cx="6" cy="18" r="3"></circle>
               <circle cx="18" cy="16" r="3"></circle>
             </svg>
-            <span>🎵 Audio MP3 (Up to 320 kbps)</span>
+            <span>🎵 Audio (MP3 / FLAC / WAV)</span>
           </button>
 
           <button class="tab-btn" data-tab="tab-player" id="tab-btn-player">
@@ -272,7 +340,7 @@
               <circle cx="8.5" cy="8.5" r="1.5"></circle>
               <polyline points="21 15 16 10 5 21"></polyline>
             </svg>
-            <span>🖼️ Thumbnail &amp; Poster</span>
+            <span>🖼️ Thumbnail Poster</span>
           </button>
 
           <button class="tab-btn" data-tab="tab-text" id="tab-btn-text">
@@ -295,12 +363,12 @@
           </button>
         </div>
 
-        <!-- Tab 1: Video Downloads (1080p to 144p) -->
+        <!-- Tab 1: Video Downloads Grid -->
         <div id="tab-videos" class="tab-pane active">
           <div id="video-formats-grid" class="formats-grid"></div>
         </div>
 
-        <!-- Tab 2: Audio Downloads (Up to 320 kbps) -->
+        <!-- Tab 2: Audio Downloads Grid -->
         <div id="tab-audio" class="tab-pane">
           <div id="audio-formats-grid" class="formats-grid"></div>
         </div>
@@ -385,7 +453,7 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>OmniExtract &bull; Universal Video &amp; Audio Downloader &bull; 1080p Full Quality &bull; 320 kbps MP3 &bull; No Login Required</p>
+      <p>Omni Extractor &bull; Universal Video &amp; Audio Downloader &bull; 4K &amp; 1080p MP4 &bull; 320 kbps MP3 / FLAC / WAV &bull; No Login Required</p>
     </footer>
   </div>
 
@@ -428,7 +496,7 @@
             <span id="modal-live-status-pill" class="live-pulse-badge">Online</span>
           </div>
           <h3>Global &amp; Local Access</h3>
-          <span class="modal-sub">Use OmniExtract on any phone, tablet, or remote browser anywhere</span>
+          <span class="modal-sub">Use Omni Extractor on any phone, tablet, or remote browser anywhere</span>
         </div>
         <button id="btn-close-share" class="btn-icon-close">&times;</button>
       </div>
@@ -437,12 +505,12 @@
           <div class="share-card-header">
             <div class="share-type-icon">🌐</div>
             <div class="share-type-info">
-              <strong>Worldwide Render URL (HTTPS)</strong>
-              <p>Permanent 24/7 cloud address</p>
+              <strong>Public Tunnel / Cloud URL</strong>
+              <p>Remote HTTPS address</p>
             </div>
           </div>
           <div class="share-url-box">
-            <input type="text" id="public-url-input" readonly value="https://omniextract-fb.onrender.com" />
+            <input type="text" id="public-url-input" readonly value="Detecting public URL..." />
             <button type="button" id="btn-copy-public-url" class="btn-primary-sm">Copy Link</button>
           </div>
         </div>
@@ -456,7 +524,7 @@
             </div>
           </div>
           <div class="share-url-box">
-            <input type="text" id="lan-url-input" readonly value="http://192.168.1.217:8000" />
+            <input type="text" id="lan-url-input" readonly value="http://127.0.0.1:8000" />
             <button type="button" id="btn-copy-lan-url" class="btn-secondary-sm">Copy Link</button>
           </div>
         </div>
@@ -464,7 +532,7 @@
         <div class="share-tips-panel">
           <div class="tip-icon">✨</div>
           <div class="tip-text">
-            <strong>Full Liquid Glass Experience:</strong> Optimized for mobile Safari, Android Chrome, and desktop screens with fluid glass refractions.
+            <strong>Cross-Device Extraction:</strong> Paste links from iOS Safari or Android Chrome to download directly onto your device.
           </div>
         </div>
       </div>

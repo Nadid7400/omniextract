@@ -1,7 +1,10 @@
 """
-Universal Video & Audio Extractor Engine powered by yt-dlp and FFmpeg.
-Supports YouTube, Facebook, TikTok, Instagram, Twitter/X, Reddit, Vimeo,
-Adult websites (Pornhub, XVideos, SpankBang, etc.), and 1,000+ online video platforms.
+Omni Extractor — Universal Video & Audio Extraction Engine
+Powered by yt-dlp and FFmpeg (with automatic imageio-ffmpeg fallback).
+
+Supports YouTube, Shorts, TikTok, Instagram Reels, Facebook, X (Twitter),
+Reddit, Vimeo, Dailymotion, Twitch, Pinterest, Adult platforms (18+),
+and 1,500+ online video streaming services.
 """
 
 import os
@@ -14,21 +17,47 @@ import tempfile
 from typing import Dict, Any, List, Optional
 import yt_dlp
 
-# Detect FFmpeg executable
-FFMPEG_PATH = None
-try:
-    import imageio_ffmpeg
-    FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
-except Exception:
-    # Check system PATH
-    shutil_path = shutil.which("ffmpeg")
-    if shutil_path:
-        FFMPEG_PATH = shutil_path
-    elif os.path.exists(r"C:\Program Files (x86)\cloudflared\ffmpeg.exe"):
-        FFMPEG_PATH = r"C:\Program Files (x86)\cloudflared\ffmpeg.exe"
+def detect_ffmpeg() -> Optional[str]:
+    """
+    Detect FFmpeg binary:
+    1. Check system PATH via shutil.which
+    2. Check imageio-ffmpeg python package
+    3. Check common installation directories on Windows and Linux
+    """
+    # 1. System PATH
+    sys_path = shutil.which("ffmpeg")
+    if sys_path and os.path.exists(sys_path):
+        return sys_path
+
+    # 2. imageio-ffmpeg bundled binary
+    try:
+        import imageio_ffmpeg
+        img_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        if img_exe and os.path.exists(img_exe):
+            return img_exe
+    except Exception:
+        pass
+
+    # 3. Known common locations
+    known_paths = [
+        r"C:\ffmpeg\bin\ffmpeg.exe",
+        r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+        r"C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe",
+        r"C:\Program Files (x86)\cloudflared\ffmpeg.exe",
+        "/usr/bin/ffmpeg",
+        "/usr/local/bin/ffmpeg",
+        "/opt/homebrew/bin/ffmpeg"
+    ]
+    for p in known_paths:
+        if os.path.exists(p):
+            return p
+
+    return None
+
+FFMPEG_PATH = detect_ffmpeg()
 
 def format_duration(seconds: Optional[float]) -> str:
-    """Format seconds into HH:MM:SS or MM:SS."""
+    """Format duration in seconds into HH:MM:SS or MM:SS."""
     if not seconds:
         return "N/A"
     try:
@@ -59,78 +88,175 @@ def detect_platform(url: str, extractor_key: Optional[str] = None) -> Dict[str, 
     ext = (extractor_key or "").lower()
 
     if "youtube" in u or "youtu.be" in u or "youtube" in ext:
-        return {"name": "YouTube", "color": "#FF0000", "icon": "youtube"}
-    if "facebook.com" in u or "fb.watch" in u or "facebook" in ext:
-        return {"name": "Facebook", "color": "#1877F2", "icon": "facebook"}
+        is_shorts = "/shorts/" in u
+        return {
+            "name": "YouTube Shorts" if is_shorts else "YouTube",
+            "color": "#FF0000",
+            "icon": "youtube",
+            "badge": "YouTube Shorts" if is_shorts else "YouTube"
+        }
+    if "facebook.com" in u or "fb.watch" in u or "fb.com" in u or "facebook" in ext:
+        is_reel = "/reel" in u or "/reels" in u
+        return {
+            "name": "Facebook Reels" if is_reel else "Facebook",
+            "color": "#1877F2",
+            "icon": "facebook",
+            "badge": "Facebook Reel" if is_reel else "Facebook"
+        }
     if "instagram.com" in u or "instagram" in ext:
-        return {"name": "Instagram", "color": "#E4405F", "icon": "instagram"}
+        is_reel = "/reel" in u or "/reels" in u
+        return {
+            "name": "Instagram Reels" if is_reel else "Instagram",
+            "color": "#E1306C",
+            "icon": "instagram",
+            "badge": "Instagram Reel" if is_reel else "Instagram"
+        }
     if "tiktok.com" in u or "tiktok" in ext:
-        return {"name": "TikTok", "color": "#00F2FE", "icon": "tiktok"}
+        return {
+            "name": "TikTok",
+            "color": "#00F2FE",
+            "icon": "tiktok",
+            "badge": "TikTok No Watermark"
+        }
     if "twitter.com" in u or "x.com" in u or "twitter" in ext:
-        return {"name": "X / Twitter", "color": "#1DA1F2", "icon": "twitter"}
+        return {
+            "name": "X (Twitter)",
+            "color": "#1DA1F2",
+            "icon": "twitter",
+            "badge": "X (Twitter)"
+        }
     if "reddit.com" in u or "v.redd.it" in u or "reddit" in ext:
-        return {"name": "Reddit", "color": "#FF4500", "icon": "reddit"}
+        return {
+            "name": "Reddit",
+            "color": "#FF4500",
+            "icon": "reddit",
+            "badge": "Reddit Video"
+        }
     if any(adult in u or adult in ext for adult in ["pornhub", "xvideos", "spankbang", "xnxx", "redtube", "youporn", "eporner"]):
-        return {"name": "Adult Platform (18+)", "color": "#FFA500", "icon": "adult"}
+        return {
+            "name": "Adult Platform (18+)",
+            "color": "#FFA500",
+            "icon": "adult",
+            "badge": "18+ Adult Video"
+        }
     if "vimeo.com" in u or "vimeo" in ext:
-        return {"name": "Vimeo", "color": "#1AB7EA", "icon": "vimeo"}
+        return {
+            "name": "Vimeo",
+            "color": "#1AB7EA",
+            "icon": "vimeo",
+            "badge": "Vimeo"
+        }
     if "dailymotion.com" in u or "dailymotion" in ext:
-        return {"name": "Dailymotion", "color": "#0066DC", "icon": "dailymotion"}
-    
-    return {"name": extractor_key or "Web Video", "color": "#E11D48", "icon": "video"}
+        return {
+            "name": "Dailymotion",
+            "color": "#0066DC",
+            "icon": "dailymotion",
+            "badge": "Dailymotion"
+        }
+    if "twitch.tv" in u or "twitch" in ext:
+        return {
+            "name": "Twitch",
+            "color": "#9146FF",
+            "icon": "twitch",
+            "badge": "Twitch Clip"
+        }
+    if "pinterest.com" in u or "pin.it" in u or "pinterest" in ext:
+        return {
+            "name": "Pinterest",
+            "color": "#E60023",
+            "icon": "pinterest",
+            "badge": "Pinterest Video"
+        }
+
+    clean_name = (extractor_key or "Web Video").replace("Extractor", "").strip()
+    return {
+        "name": clean_name or "Web Video",
+        "color": "#8B5CF6",
+        "icon": "video",
+        "badge": "Universal Video"
+    }
 
 class UniversalVideoExtractor:
-    """Universal Video & Audio Downloader Engine."""
+    """Robust universal video & audio extraction engine powered by yt-dlp."""
 
     def __init__(self):
         self.ffmpeg_path = FFMPEG_PATH
+        self.node_path = shutil.which("node")
 
-    def get_ydl_options(self, extra_opts: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Base yt-dlp configuration with anti-blocking headers, android client, and ffmpeg."""
-        opts = {
+    def get_ydl_options(self, extra_opts: Optional[Dict[str, Any]] = None, is_download: bool = False) -> Dict[str, Any]:
+        """Base yt-dlp configuration with FFmpeg, Node.js runner, and anti-blocking headers."""
+        opts: Dict[str, Any] = {
             "quiet": True,
             "no_warnings": True,
-            "skip_download": True,
+            "skip_download": not is_download,
             "nocheckcertificate": True,
             "ignoreerrors": False,
+            "noplaylist": True,
+            "concurrent_fragment_downloads": 5,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "web"]
+                    "player_client": ["visionos", "android_vr", "web"]
                 }
             },
-            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "headers": {
                 "Accept-Language": "en-US,en;q=0.9",
+                "Sec-Fetch-Mode": "navigate"
             }
         }
-        node_bin = shutil.which("node")
-        if node_bin:
-            opts["js_runtimes"] = {"node": {"path": node_bin}}
 
+        # Provide node.js runtime for YouTube player signature decryption
+        if self.node_path:
+            opts["js_runtimes"] = {"node": {"path": self.node_path}}
+
+        # Set ffmpeg location
         if self.ffmpeg_path and os.path.exists(self.ffmpeg_path):
             opts["ffmpeg_location"] = self.ffmpeg_path
+
+        # Check for cookies file
+        cookie_file = os.getenv("YTDL_COOKIES") or os.path.join(os.getcwd(), "cookies.txt")
+        if os.path.exists(cookie_file):
+            opts["cookiefile"] = cookie_file
 
         if extra_opts:
             opts.update(extra_opts)
         return opts
 
     def extract_info(self, url: str) -> Dict[str, Any]:
-        """Extract video metadata and categorize download formats (1080p, 720p, 480p, 360p, 240p, 144p & MP3s)."""
-        opts = self.get_ydl_options({"skip_download": True})
-        
-        with yt_dlp.YoutubeDL(opts) as ydl:
+        """
+        Extract video metadata, dynamically determine all available video resolutions,
+        and generate high-quality audio extraction profiles (up to 320 kbps MP3, M4A, FLAC, WAV).
+        """
+        info = None
+        last_error = None
+
+        candidate_configs = [
+            {"extractor_args": {"youtube": {"player_client": ["visionos", "android_vr", "web"]}}},
+            {"extractor_args": {"youtube": {"player_client": ["android_vr"]}}},
+            {"extractor_args": {"youtube": {"player_client": ["web"]}}},
+            {"extractor_args": {"youtube": {"player_client": ["tvhtml5"]}}},
+            {}
+        ]
+
+        for cfg in candidate_configs:
             try:
-                info = ydl.extract_info(url, download=False)
+                opts = self.get_ydl_options({**cfg, "skip_download": True}, is_download=False)
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                if info:
+                    break
             except Exception as e:
-                # Retry with relaxed options if needed
-                raise ValueError(f"Could not extract video from URL: {str(e)}")
+                last_error = e
+                continue
 
         if not info:
-            raise ValueError("No video information returned for this link.")
+            raise ValueError(f"Could not extract video from URL: {str(last_error or 'No media info returned')}")
 
-        # In case of playlist, pick the first video or summary
+        # In case of playlist or multi-entry, pick the first video
         if "entries" in info and info["entries"]:
-            info = list(info["entries"])[0]
+            entries = list(info["entries"])
+            if entries:
+                info = entries[0]
 
         title = info.get("title") or "video_download"
         duration = info.get("duration")
@@ -144,9 +270,41 @@ class UniversalVideoExtractor:
 
         formats = info.get("formats", [])
 
-        # Categorize video formats by target resolutions: 1080, 720, 480, 360, 240, 144
-        target_resolutions = [1080, 720, 480, 360, 240, 144]
-        res_labels = {
+        # -------------------------------------------------------------
+        # Dynamic Video Resolutions Parsing
+        # -------------------------------------------------------------
+        # Gather all distinct valid heights where video codec is present
+        detected_heights = set()
+        height_to_format: Dict[int, Dict[str, Any]] = {}
+
+        for f in formats:
+            h = f.get("height")
+            vcodec = f.get("vcodec")
+            # Must have height >= 144 and not be audio-only
+            if h and isinstance(h, int) and h >= 144 and vcodec != "none":
+                detected_heights.add(h)
+                # Keep the format with largest filesize or best bitrate for this height
+                curr = height_to_format.get(h)
+                f_size = f.get("filesize") or f.get("filesize_approx") or 0
+                c_size = (curr.get("filesize") or curr.get("filesize_approx") or 0) if curr else 0
+                if not curr or f_size > c_size:
+                    height_to_format[h] = f
+
+        # If no specific heights found in formats, fallback to top-level info height or standards
+        if not detected_heights:
+            top_h = info.get("height")
+            if top_h and isinstance(top_h, int) and top_h >= 144:
+                detected_heights.add(top_h)
+            else:
+                detected_heights = {1080, 720, 480, 360}
+
+        sorted_heights = sorted(list(detected_heights), reverse=True)
+        max_height = sorted_heights[0] if sorted_heights else 1080
+
+        standard_labels = {
+            4320: "4320p (8K Ultra HD)",
+            2160: "2160p (4K Ultra HD)",
+            1440: "1440p (2K Quad HD)",
             1080: "1080p (Full HD)",
             720: "720p (HD)",
             480: "480p (Standard)",
@@ -155,94 +313,132 @@ class UniversalVideoExtractor:
             144: "144p (Compact)"
         }
 
-        # Find best available formats
-        video_downloads = []
-        seen_res = set()
+        video_downloads: List[Dict[str, Any]] = []
 
-        # Check maximum height available
-        max_height = 0
-        for f in formats:
-            h = f.get("height") or 0
-            if h > max_height:
-                max_height = h
+        # 1. Best Quality option (Highest available resolution)
+        best_size = info.get("filesize") or info.get("filesize_approx")
+        if not best_size and max_height in height_to_format:
+            best_size = height_to_format[max_height].get("filesize") or height_to_format[max_height].get("filesize_approx")
 
-        # 1. Best Quality Option
+        best_badge = "4K ULTRA" if max_height >= 2160 else "2K QHD" if max_height >= 1440 else "1080p FHD" if max_height >= 1080 else f"{max_height}p BEST"
         video_downloads.append({
             "quality": "best",
             "resolution": f"Best Quality ({max_height}p)" if max_height else "Best Quality",
-            "height": max_height or 1080,
+            "height": max_height,
             "format_id": "bestvideo+bestaudio/best",
             "extension": "mp4",
-            "badge": "ULTRA HD" if max_height >= 1080 else "BEST",
-            "filesize": format_filesize(info.get("filesize") or info.get("filesize_approx")),
-            "download_url": f"/api/download-video?url={url}&quality=best",
+            "badge": best_badge,
+            "filesize": format_filesize(best_size),
+            "download_url": f"/api/download?url={url}&type=video&quality=best",
             "is_best": True
         })
 
-        # 2. Add each target resolution: 1080p, 720p, 480p, 360p, 240p, 144p
-        for res in target_resolutions:
-
-            # Look for format close to this resolution
-            matching_format = None
-            for f in formats:
-                h = f.get("height") or 0
-                if h == res:
-                    matching_format = f
-                    break
-
-            size_str = ""
-            if matching_format:
-                size_str = format_filesize(matching_format.get("filesize") or matching_format.get("filesize_approx"))
+        # 2. Add each dynamically detected resolution
+        for h in sorted_heights:
+            fmt = height_to_format.get(h)
+            f_size = (fmt.get("filesize") or fmt.get("filesize_approx")) if fmt else None
+            
+            # Label & badge
+            res_label = standard_labels.get(h, f"{h}p")
+            badge = f"{h}p"
+            if h >= 2160:
+                badge = "4K"
+            elif h >= 1440:
+                badge = "2K"
+            elif h >= 1080:
+                badge = "1080p"
+            elif h >= 720:
+                badge = "720p"
 
             video_downloads.append({
-                "quality": str(res),
-                "resolution": res_labels.get(res, f"{res}p"),
-                "height": res,
-                "format_id": f"bestvideo[height<={res}]+bestaudio/best[height<={res}]/best",
+                "quality": str(h),
+                "resolution": res_label,
+                "height": h,
+                "format_id": f"bestvideo[height<={h}]+bestaudio/best[height<={h}]/best",
                 "extension": "mp4",
-                "badge": f"{res}p",
-                "filesize": size_str,
-                "download_url": f"/api/download-video?url={url}&quality={res}",
+                "badge": badge,
+                "filesize": format_filesize(f_size),
+                "download_url": f"/api/download?url={url}&type=video&quality={h}",
                 "is_best": False
             })
 
-        # 3. Audio Formats (up to 320 kbps as requested)
-        audio_downloads = [
+        # -------------------------------------------------------------
+        # Audio Profiles (MP3 up to 320 kbps CBR, M4A, FLAC, WAV)
+        # -------------------------------------------------------------
+        audio_downloads: List[Dict[str, Any]] = [
             {
+                "codec": "mp3",
                 "bitrate": "320",
-                "label": "320 kbps MP3 (Master Studio Quality)",
-                "badge": "320K",
+                "label": "MP3 Studio (320 kbps CBR)",
+                "badge": "320K MP3",
                 "extension": "mp3",
-                "download_url": f"/api/download-audio?url={url}&bitrate=320",
-                "is_best": True
+                "download_url": f"/api/download?url={url}&type=audio&format=mp3&bitrate=320",
+                "is_best": True,
+                "desc": "Master Studio Quality — Highest MP3 Bitrate"
             },
             {
+                "codec": "mp3",
                 "bitrate": "256",
-                "label": "256 kbps MP3 (High Fidelity)",
-                "badge": "256K",
+                "label": "MP3 High Fidelity (256 kbps)",
+                "badge": "256K MP3",
                 "extension": "mp3",
-                "download_url": f"/api/download-audio?url={url}&bitrate=256",
-                "is_best": False
+                "download_url": f"/api/download?url={url}&type=audio&format=mp3&bitrate=256",
+                "is_best": False,
+                "desc": "High Fidelity — Audiophile Balance"
             },
             {
+                "codec": "mp3",
                 "bitrate": "192",
-                "label": "192 kbps MP3 (Standard CD Quality)",
-                "badge": "192K",
+                "label": "MP3 CD Quality (192 kbps)",
+                "badge": "192K MP3",
                 "extension": "mp3",
-                "download_url": f"/api/download-audio?url={url}&bitrate=192",
-                "is_best": False
+                "download_url": f"/api/download?url={url}&type=audio&format=mp3&bitrate=192",
+                "is_best": False,
+                "desc": "Standard CD Quality"
             },
             {
+                "codec": "mp3",
                 "bitrate": "128",
-                "label": "128 kbps MP3 (Compact & Fast)",
-                "badge": "128K",
+                "label": "MP3 Compact (128 kbps)",
+                "badge": "128K MP3",
                 "extension": "mp3",
-                "download_url": f"/api/download-audio?url={url}&bitrate=128",
-                "is_best": False
+                "download_url": f"/api/download?url={url}&type=audio&format=mp3&bitrate=128",
+                "is_best": False,
+                "desc": "Fast Download & Compact File Size"
+            },
+            {
+                "codec": "m4a",
+                "bitrate": "best",
+                "label": "M4A / AAC (Source Quality)",
+                "badge": "M4A",
+                "extension": "m4a",
+                "download_url": f"/api/download?url={url}&type=audio&format=m4a&bitrate=best",
+                "is_best": False,
+                "desc": "Original AAC / M4A Stream — Crystal Clear"
+            },
+            {
+                "codec": "flac",
+                "bitrate": "lossless",
+                "label": "FLAC Lossless Studio Audio",
+                "badge": "FLAC Lossless",
+                "extension": "flac",
+                "download_url": f"/api/download?url={url}&type=audio&format=flac&bitrate=lossless",
+                "is_best": False,
+                "desc": "Uncompressed Hi-Res Studio FLAC"
+            },
+            {
+                "codec": "wav",
+                "bitrate": "uncompressed",
+                "label": "WAV Uncompressed (16-bit PCM)",
+                "badge": "WAV PCM",
+                "extension": "wav",
+                "download_url": f"/api/download?url={url}&type=audio&format=wav&bitrate=uncompressed",
+                "is_best": False,
+                "desc": "Broadcast Standard Uncompressed Audio"
             }
         ]
 
-        # In-browser preview URL (direct stream if available or proxy)
+        # In-browser preview URL (direct stream if available)
         preview_url = None
         for f in formats:
             if f.get("vcodec") != "none" and f.get("acodec") != "none" and f.get("ext") == "mp4":
@@ -267,7 +463,7 @@ class UniversalVideoExtractor:
             "like_count": like_count,
             "thumbnail": thumbnail,
             "platform": platform,
-            "max_resolution": f"{max_height}p" if max_height else "1080p",
+            "max_resolution": f"{max_height}p",
             "video_downloads": video_downloads,
             "audio_downloads": audio_downloads,
             "preview_url": preview_url,
@@ -275,32 +471,36 @@ class UniversalVideoExtractor:
         }
 
     def download_video_file(self, url: str, quality: str, output_path: str) -> str:
-        """Download video at specified resolution (e.g. 1080, 720, 480, 360, 240, 144, best) and merge to MP4."""
+        """
+        Download video at specified resolution (e.g. 2160, 1440, 1080, 720, 480, 360, best)
+        and merge with best audio into MP4. Supports both separate video/audio streams and
+        progressive single streams (Facebook, TikTok, Instagram, Twitter, YouTube).
+        """
         if quality == "best":
-            format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"
+            format_spec = "bestvideo*+bestaudio/best"
         else:
             try:
                 h = int(quality)
-                format_spec = f"bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={h}]+bestaudio/best[height<={h}]/best"
+                format_spec = f"bestvideo*[height<={h}]+bestaudio/best[height<={h}]/bestvideo*[height<={h}]/best"
             except Exception:
-                format_spec = "bestvideo+bestaudio/best"
+                format_spec = "bestvideo*+bestaudio/best"
 
         ydl_opts = self.get_ydl_options({
             "skip_download": False,
             "format": format_spec,
             "outtmpl": output_path,
             "merge_output_format": "mp4",
-        })
+        }, is_download=True)
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        # Find the actual downloaded file in directory
+        # Find the actual downloaded file in the directory
         parent_dir = os.path.dirname(output_path)
         if os.path.exists(parent_dir):
             files = [f for f in os.listdir(parent_dir) if not f.endswith(".part") and not f.endswith(".ytdl")]
             if files:
-                # Prefer .mp4 or largest file
+                # Prefer .mp4 or the largest file
                 mp4s = [f for f in files if f.endswith(".mp4")]
                 if mp4s:
                     return os.path.join(parent_dir, mp4s[0])
@@ -310,32 +510,43 @@ class UniversalVideoExtractor:
             return output_path
         return output_path
 
-    def download_audio_file(self, url: str, bitrate: str, output_path: str) -> str:
-        """Extract audio and convert to MP3 at specified bitrate (up to 320 kbps)."""
-        clean_bitrate = str(bitrate) if bitrate in ["320", "256", "192", "128"] else "320"
-        
+    def download_audio_file(self, url: str, audio_format: str = "mp3", bitrate: str = "320", output_path: str = "") -> str:
+        """
+        Extract audio and convert to specified format (MP3 up to 320 kbps CBR, M4A, FLAC, WAV).
+        """
+        clean_format = audio_format.lower().strip()
+        if clean_format not in ["mp3", "m4a", "flac", "wav"]:
+            clean_format = "mp3"
+
+        postprocessor: Dict[str, Any] = {
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": clean_format
+        }
+
+        if clean_format == "mp3":
+            clean_bitrate = str(bitrate) if bitrate in ["320", "256", "192", "128"] else "320"
+            postprocessor["preferredquality"] = clean_bitrate
+        elif clean_format == "m4a":
+            postprocessor["preferredquality"] = "0"
+
         ydl_opts = self.get_ydl_options({
             "skip_download": False,
             "format": "bestaudio/best",
             "outtmpl": output_path,
-            "postprocessors": [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": clean_bitrate,
-            }]
-        })
+            "postprocessors": [postprocessor]
+        }, is_download=True)
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        # Find generated .mp3 file
         parent_dir = os.path.dirname(output_path)
+        target_ext = f".{clean_format}"
         if os.path.exists(parent_dir):
-            mp3_files = [f for f in os.listdir(parent_dir) if f.endswith(".mp3")]
-            if mp3_files:
-                return os.path.join(parent_dir, mp3_files[0])
-            all_files = [f for f in os.listdir(parent_dir) if not f.endswith(".part")]
-            if all_files:
-                return os.path.join(parent_dir, all_files[0])
+            matched = [f for f in os.listdir(parent_dir) if f.endswith(target_ext)]
+            if matched:
+                return os.path.join(parent_dir, matched[0])
+            all_non_parts = [f for f in os.listdir(parent_dir) if not f.endswith(".part") and not f.endswith(".ytdl")]
+            if all_non_parts:
+                return os.path.join(parent_dir, all_non_parts[0])
 
         return output_path

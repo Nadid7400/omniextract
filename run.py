@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Launcher for OmniExtract Facebook
+Launcher for Omni Extractor - Universal Video & Audio Downloader
 Starts the FastAPI server and makes it accessible locally, over LAN, and globally via public tunnel.
 """
 
@@ -11,6 +11,7 @@ import webbrowser
 import threading
 import time
 import subprocess
+import re
 import requests
 import uvicorn
 
@@ -62,7 +63,6 @@ def start_public_tunnel(port=8000, domain=None):
             stderr=subprocess.DEVNULL,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
-        # Give ngrok a moment to establish tunnel
         for _ in range(12):
             time.sleep(0.5)
             url = get_public_tunnel_url()
@@ -86,7 +86,6 @@ def start_cloudflared_tunnel(port=8000):
             text=True,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
-        # Extract the trycloudflare URL from logs
         for _ in range(25):
             line = proc.stdout.readline() if proc.stdout else ""
             if "trycloudflare.com" in line:
@@ -99,9 +98,10 @@ def start_cloudflared_tunnel(port=8000):
     return None
 
 def open_browser(port=8000):
+    """Open default web browser pointing to application."""
     time.sleep(1.2)
     url = f"http://localhost:{port}"
-    print(f"\n[+] Opening OmniExtract in your browser: {url}")
+    print(f"\n[+] Opening Omni Extractor in your browser: {url}")
     webbrowser.open(url)
 
 if __name__ == "__main__":
@@ -113,7 +113,7 @@ if __name__ == "__main__":
             except ValueError:
                 pass
 
-    host = "0.0.0.0"  # Allows access from any device on the network
+    host = "0.0.0.0"
     lan_ip = get_lan_ip()
 
     enable_public = "--public" in sys.argv or "--share" in sys.argv or "--cloudflare" in sys.argv
@@ -139,19 +139,22 @@ if __name__ == "__main__":
     else:
         public_url = get_public_tunnel_url()
 
-    print("=" * 64)
-    print("   [+] OmniExtract -- Universal Facebook Extractor (Liquid Glass)")
-    print("=" * 64)
+    print("=" * 68)
+    print("   [+] Omni Extractor -- Universal Video & Audio Downloader")
+    print("=" * 68)
     print(f"   [Local]   http://localhost:{port}")
     print(f"   [LAN]     http://{lan_ip}:{port}")
     if public_url:
         print(f"   [Public]  {public_url}")
     else:
         print(f"   [Public]  Run with '--public' or '--cloudflare' for global HTTPS URL")
-    print("=" * 64)
+    print("=" * 68)
 
-    # Launch browser automatically
-    threading.Thread(target=open_browser, args=(port,), daemon=True).start()
+    # Launch browser automatically if not in headless/CI
+    if os.getenv("NO_BROWSER") != "1" and "--no-browser" not in sys.argv:
+        threading.Thread(target=open_browser, args=(port,), daemon=True).start()
 
-    # Start Uvicorn bound to 0.0.0.0 for multi-device network reach
-    uvicorn.run("backend.server:app", host=host, port=port, reload=False, log_level="info")
+    # Start Uvicorn bound to 0.0.0.0 (with auto-reload for local changes)
+    is_dev = os.getenv("ENV") != "production" and "--no-reload" not in sys.argv
+    uvicorn.run("backend.server:app", host=host, port=port, reload=is_dev, log_level="info")
+
