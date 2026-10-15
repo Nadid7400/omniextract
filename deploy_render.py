@@ -58,6 +58,21 @@ def trigger_render_deploy(svc):
         print(f"[!] Failed to trigger deploy for {svc['name']}: {e}")
         return None, None
 
+def get_latest_deploy(svc):
+    """Retrieve the latest deploy info for a service."""
+    url = f"https://api.render.com/v1/services/{svc['service_id']}/deploys?limit=1"
+    headers = {"Authorization": f"Bearer {svc['api_key']}"}
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req) as resp:
+            data = json.loads(resp.read().decode())
+            if data and len(data) > 0:
+                dep = data[0].get("deploy", {})
+                return dep.get("id"), dep.get("status")
+    except Exception:
+        pass
+    return None, None
+
 def check_deploy_status(svc, deploy_id):
     """Check the status of a specific deployment."""
     url = f"https://api.render.com/v1/services/{svc['service_id']}/deploys/{deploy_id}"
@@ -92,7 +107,7 @@ def main():
     else:
         print("\n[*] Working tree is clean (no uncommitted changes).")
 
-    # 2. Push to GitHub
+    # 2. Push to GitHub (Render autoDeploy is hooked into origin/main)
     print("\n[*] Pushing commits to GitHub (origin/main)...")
     push_out = run_git_cmd(["push", "origin", "main"])
     if push_out is not None:
@@ -100,35 +115,39 @@ def main():
     else:
         print("[!] Warning: Could not push to origin main (or already up to date).")
 
-    # 3. Trigger Render API Deployments
-    print("\n[*] Triggering Render Cloud Deployments via API...")
-    active_deploys = []
-    for svc in RENDER_SERVICES:
-        dep_id, status = trigger_render_deploy(svc)
-        if dep_id:
-            print(f"   -> {svc['name']}: Deploy started! (ID: {dep_id}, Status: {status})")
-            active_deploys.append((svc, dep_id))
-        else:
-            print(f"   -> {svc['name']}: Render auto-deploy will trigger via GitHub webhook.")
+    # 3. Monitor Render deploys (triggered automatically by GitHub webhook)
+    print("\n[*] Monitoring Render Cloud Deployments...")
+    time.sleep(2)  # Give GitHub webhook a moment to register on Render
 
-    # 4. Monitor deploys until live
-    if active_deploys:
-        print("\n[*] Waiting for Render deployment to complete...")
-        for svc, dep_id in active_deploys:
-            print(f"   Monitoring {svc['name']}...", end=" ", flush=True)
-            for attempt in range(24): # Wait up to ~2 minutes
-                time.sleep(5)
-                st = check_deploy_status(svc, dep_id)
-                if st == "live":
-                    print(f"LIVE! (Status: {st})")
-                    break
-                elif st in ["build_failed", "canceled", "deactivated"]:
-                    print(f"FAILED ({st})")
-                    break
-                else:
-                    print(".", end="", flush=True)
+    for svc in RENDER_SERVICES:
+        dep_id, st = get_latest_deploy(svc)
+        if not dep_id:
+            dep_id, st = trigger_render_deploy(svc)
+
+        print(f"   Monitoring {svc['name']} (Deploy ID: {dep_id or 'auto'})...", end=" ", flush=True)
+        if not dep_id:
+            print("Auto-deploy active via GitHub.")
+            continue
+
+        for attempt in range(25):
+            st = check_deploy_status(svc, dep_id)
+            if st == "live":
+                print(f"LIVE! (Status: {st})")
+                break
+            elif st in ["build_failed", "canceled", "deactivated"]:
+                # Check if a newer deploy took over
+                newer_id, newer_st = get_latest_deploy(svc)
+                if newer_id and newer_id != dep_id and newer_st in ["live", "update_in_progress", "build_in_progress"]:
+                    dep_id = newer_id
+                    print(f"\n   -> Switched to active deploy {dep_id}...", end=" ", flush=True)
+                    continue
+                print(f"Finished ({st})")
+                break
             else:
-                print(" In progress (Render is finishing build in background).")
+                print(".", end="", flush=True)
+                time.sleep(4)
+        else:
+            print(" Build running in background.")
 
     print("\n" + "=" * 64)
     print("   [+] Deployment Complete! Public Live URLs:")
