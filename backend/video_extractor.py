@@ -195,7 +195,7 @@ class UniversalVideoExtractor:
             "concurrent_fragment_downloads": 5,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["visionos", "android_vr", "web"]
+                    "player_client": ["android", "ios", "mweb"]
                 }
             },
             "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -231,10 +231,11 @@ class UniversalVideoExtractor:
         last_error = None
 
         candidate_configs = [
+            {"extractor_args": {"youtube": {"player_client": ["android", "ios", "mweb"]}}},
+            {"extractor_args": {"youtube": {"player_client": ["ios", "android"]}}},
+            {"extractor_args": {"youtube": {"player_client": ["tv", "web_embedded", "android", "ios"]}}},
             {"extractor_args": {"youtube": {"player_client": ["visionos", "android_vr", "web"]}}},
-            {"extractor_args": {"youtube": {"player_client": ["android_vr"]}}},
             {"extractor_args": {"youtube": {"player_client": ["web"]}}},
-            {"extractor_args": {"youtube": {"player_client": ["tvhtml5"]}}},
             {}
         ]
 
