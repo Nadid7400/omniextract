@@ -89,5 +89,40 @@ docker run -p 8000:8000 omniextract
 
 ---
 
+## 🍪 YouTube Bot Verification, Cookies & Proxy Setup
+
+Datacenter IP addresses (like cloud hosts on Render, AWS, GCP, etc.) are frequently challenged by YouTube with bot verification blocks:
+`"Sign in to confirm you're not a bot"`.
+
+Omni Extractor automatically retries requests using alternate player clients (`tv`, `web_safari`, `android`, `ios`). To ensure 100% reliable downloads on cloud servers or for age-restricted / private videos, configure YouTube cookies or an outbound proxy:
+
+### 1. Exporting Cookies from Your Browser
+1. Install a Netscape-format cookie exporter browser extension:
+   - Chrome / Brave / Edge: **Get cookies.txt LOCALLY**
+   - Firefox: **Cookie-Editor** (Export as Netscape format)
+2. Go to [YouTube.com](https://www.youtube.com) and ensure you are logged in.
+3. Open the extension and click **Export** (or copy all lines).
+4. Save as `cookies.txt` (this file is already excluded in `.gitignore` to protect your privacy).
+
+### 2. Configuring Environment Variables
+Omni Extractor recognizes the following environment variables:
+
+| Environment Variable | Description | Example |
+| :--- | :--- | :--- |
+| `COOKIES_FILE` (or `YTDL_COOKIES`) | Absolute or relative path to your Netscape `cookies.txt` file. | `/etc/secrets/cookies.txt` or `./cookies.txt` |
+| `YT_COOKIES` | The entire raw text content of your `cookies.txt` file (ideal for Render environment variables). | `# Netscape HTTP Cookie File...` |
+| `PROXY_URL` | Outbound proxy for all video extractions and downloads. Supports HTTP, HTTPS, and SOCKS5. | `http://user:pass@proxy.example.com:8080` |
+
+> [!NOTE]
+> Cookie files are copied to a secure, temporary location before reading. Cookie contents are **never** logged to server logs or client responses.
+
+### 3. Quick UI Cookies Paste
+You can also paste your Netscape cookies directly into the web app:
+- Click the **🍪 Cookies** button in the top navigation bar.
+- Paste your Netscape formatted cookie text and click **Save Cookies**.
+- Cookies are safely kept in your browser's local storage and passed directly with extraction and download requests.
+
+---
+
 ## 📄 License
 MIT License.

@@ -176,6 +176,108 @@ def detect_platform(url: str, extractor_key: Optional[str] = None) -> Dict[str, 
         "badge": "Universal Video"
     }
 
+import logging
+
+logger = logging.getLogger("omniextract.extractor")
+
+def is_bot_or_sign_in_error(error_val: Any) -> bool:
+    """Detect if an error is specifically a YouTube bot check or sign-in requirement."""
+    err_str = str(error_val).lower()
+    return any(k in err_str for k in [
+        "sign in to confirm",
+        "confirm you're not a bot",
+        "confirm you’re not a bot",
+        "not a bot",
+        "use --cookies-from-browser",
+        "use --cookies for the authentication",
+        "use --cookies",
+        "bot verification",
+        "bot detection",
+        "automated queries",
+        "unusual traffic",
+        "http error 429",
+        "429: too many requests"
+    ])
+
+def classify_extraction_error(e: Exception) -> str:
+    """
+    Map raw yt-dlp errors to user-friendly messages without exposing raw tracebacks in UI.
+    Full error details are logged server-side only.
+    """
+    err_str = str(e)
+    err_lower = err_str.lower()
+
+    if is_bot_or_sign_in_error(err_str):
+        return (
+            "YouTube has blocked this request from the server IP (bot verification required). "
+            "To resolve this, please provide YouTube cookies (via the Cookies button or COOKIES_FILE/YT_COOKIES env var), "
+            "configure a proxy via PROXY_URL, or run Omni Extractor locally."
+        )
+
+    if any(k in err_lower for k in ["private video", "this video is private", "login required", "requires a login"]):
+        return "This video is private and cannot be accessed. Please verify permissions or check the link."
+
+    if any(k in err_lower for k in ["age-restricted", "confirm your age", "content warning", "inappropriate for some users"]):
+        return "This video is age-restricted and requires YouTube authentication cookies to view."
+
+    if any(k in err_lower for k in ["unavailable", "not available", "does not exist", "removed by the user", "has been removed", "404"]):
+        return "This video is unavailable or has been removed."
+
+    if any(k in err_lower for k in ["geo-restricted", "country", "not available in your region", "geolocation"]):
+        return "This video is not available in the server's geographic location."
+
+    return "Could not extract media from this link. Please verify the URL and try again."
+
+def resolve_and_copy_cookie_file(custom_cookies: Optional[str] = None) -> Optional[str]:
+    """
+    Resolve cookie file from COOKIES_FILE, YT_COOKIES env vars, or custom cookies string.
+    Copies any cookie file to a safe writable temp location before use.
+    Never logs cookie contents.
+    """
+    writable_dir = tempfile.gettempdir()
+
+    # 1. Custom cookies passed directly via request/UI
+    if custom_cookies and str(custom_cookies).strip():
+        try:
+            import hashlib
+            c_hash = hashlib.md5(custom_cookies.encode("utf-8", "ignore")).hexdigest()[:12]
+            target_path = os.path.join(writable_dir, f"omniextract_custom_cookie_{c_hash}.txt")
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(custom_cookies.strip())
+            return target_path
+        except Exception as e:
+            logger.warning(f"Failed to write custom cookie file: {e}")
+
+    # 2. YT_COOKIES (or YTDL_COOKIES_CONTENT) env var containing raw cookie text
+    raw_cookies_env = os.getenv("YT_COOKIES") or os.getenv("YTDL_COOKIES_CONTENT")
+    if raw_cookies_env and raw_cookies_env.strip():
+        try:
+            target_path = os.path.join(writable_dir, "omniextract_env_cookies.txt")
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(raw_cookies_env.strip())
+            logger.info("Loaded YouTube cookies from YT_COOKIES environment variable.")
+            return target_path
+        except Exception as e:
+            logger.warning(f"Failed to write YT_COOKIES to temp file: {e}")
+
+    # 3. COOKIES_FILE (or YTDL_COOKIES) env var containing file path
+    cookie_path_env = os.getenv("COOKIES_FILE") or os.getenv("YTDL_COOKIES")
+    candidate_paths = [cookie_path_env, "/etc/secrets/cookies.txt", os.path.join(os.getcwd(), "cookies.txt")]
+
+    for c_path in candidate_paths:
+        if c_path and os.path.exists(c_path):
+            try:
+                target_path = os.path.join(writable_dir, "omniextract_active_cookies.txt")
+                shutil.copyfile(c_path, target_path)
+                logger.info(f"Loaded YouTube cookies from file: {c_path} (copied to writable path).")
+                return target_path
+            except Exception as e:
+                logger.warning(f"Could not copy cookie file '{c_path}' to writable location: {e}")
+                return c_path
+
+    logger.warning("No YouTube cookies configured via COOKIES_FILE or YT_COOKIES. Cloud requests may encounter bot verification.")
+    return None
+
 class UniversalVideoExtractor:
     """Robust universal video & audio extraction engine powered by yt-dlp."""
 
@@ -183,8 +285,20 @@ class UniversalVideoExtractor:
         self.ffmpeg_path = FFMPEG_PATH
         self.node_path = shutil.which("node")
 
-    def get_ydl_options(self, extra_opts: Optional[Dict[str, Any]] = None, is_download: bool = False) -> Dict[str, Any]:
-        """Base yt-dlp configuration with FFmpeg, Node.js runner, and anti-blocking headers."""
+    def build_shared_ydl_opts(
+        self,
+        extra_opts: Optional[Dict[str, Any]] = None,
+        is_download: bool = False,
+        player_clients: Optional[List[str]] = None,
+        cookies: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Unified shared options builder for EVERY yt-dlp call across the project:
+        - Analyze / Single link extraction
+        - Batch extraction mode
+        - Video downloads & audio downloads
+        - Supports COOKIES_FILE, YT_COOKIES, PROXY_URL, player_client overrides.
+        """
         opts: Dict[str, Any] = {
             "quiet": True,
             "no_warnings": True,
@@ -193,11 +307,6 @@ class UniversalVideoExtractor:
             "ignoreerrors": False,
             "noplaylist": True,
             "concurrent_fragment_downloads": 5,
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android", "ios", "mweb"]
-                }
-            },
             "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "headers": {
                 "Accept-Language": "en-US,en;q=0.9",
@@ -205,88 +314,96 @@ class UniversalVideoExtractor:
             }
         }
 
-        # Provide node.js runtime for YouTube player signature decryption
+        # Player client customization (e.g. for bot check retry)
+        if player_clients:
+            opts["extractor_args"] = {"youtube": {"player_client": list(player_clients)}}
+
+        # Node.js runtime for YouTube signature deciphering
         if self.node_path:
             opts["js_runtimes"] = {"node": {"path": self.node_path}}
 
-        # Set ffmpeg location
+        # FFmpeg binary
         if self.ffmpeg_path and os.path.exists(self.ffmpeg_path):
             opts["ffmpeg_location"] = self.ffmpeg_path
 
-        # Check for cookies from various sources:
-        # 1. Custom cookies text passed via API/Frontend
-        # 2. Render Secret File (/etc/secrets/cookies.txt)
-        # 3. YTDL_COOKIES_CONTENT environment variable
-        # 4. Standard local cookies.txt file
+        # Requirement 2 & 7: Cookie support from COOKIES_FILE / YT_COOKIES (never logged)
         custom_cookies = (extra_opts or {}).pop("cookies", None) if extra_opts else None
-        cookie_file = None
-
-        if custom_cookies and str(custom_cookies).strip():
-            try:
-                import hashlib
-                c_hash = hashlib.md5(custom_cookies.encode("utf-8", "ignore")).hexdigest()[:12]
-                tmp_c = os.path.join(tempfile.gettempdir(), f"cookie_{c_hash}.txt")
-                with open(tmp_c, "w", encoding="utf-8") as f:
-                    f.write(str(custom_cookies).strip())
-                cookie_file = tmp_c
-            except Exception:
-                pass
-
-        if not cookie_file:
-            for p in ["/etc/secrets/cookies.txt", os.getenv("YTDL_COOKIES", ""), os.path.join(os.getcwd(), "cookies.txt")]:
-                if p and os.path.exists(p):
-                    cookie_file = p
-                    break
-
-        if not cookie_file:
-            env_content = os.getenv("YTDL_COOKIES_CONTENT")
-            if env_content and env_content.strip():
-                try:
-                    tmp_env_c = os.path.join(tempfile.gettempdir(), "render_ytdl_cookies.txt")
-                    with open(tmp_env_c, "w", encoding="utf-8") as f:
-                        f.write(env_content.strip())
-                    cookie_file = tmp_env_c
-                except Exception:
-                    pass
-
+        active_cookies = cookies or custom_cookies
+        cookie_file = resolve_and_copy_cookie_file(custom_cookies=active_cookies)
         if cookie_file and os.path.exists(cookie_file):
             opts["cookiefile"] = cookie_file
 
+        # Requirement 3: Optional PROXY_URL support for extraction and download
+        proxy_url = os.getenv("PROXY_URL") or os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
+        if proxy_url and proxy_url.strip():
+            opts["proxy"] = proxy_url.strip()
+
         if extra_opts:
-            opts.update(extra_opts)
+            if "extractor_args" in extra_opts and "extractor_args" in opts:
+                merged_ea = dict(opts["extractor_args"])
+                merged_ea.update(extra_opts["extractor_args"])
+                opts.update(extra_opts)
+                opts["extractor_args"] = merged_ea
+            else:
+                opts.update(extra_opts)
+
         return opts
+
+    def get_ydl_options(self, extra_opts: Optional[Dict[str, Any]] = None, is_download: bool = False) -> Dict[str, Any]:
+        """Backward-compatible alias pointing directly to the shared options builder."""
+        return self.build_shared_ydl_opts(extra_opts=extra_opts, is_download=is_download)
 
     def extract_info(self, url: str, cookies: Optional[str] = None) -> Dict[str, Any]:
         """
         Extract video metadata, dynamically determine all available video resolutions,
         and generate high-quality audio extraction profiles (up to 320 kbps MP3, M4A, FLAC, WAV).
+        On bot/sign-in errors, automatically retries with ['tv', 'web_safari'], then ['android', 'ios'].
         """
         info = None
         last_error = None
 
-        candidate_configs = [
-            {"extractor_args": {"youtube": {"player_client": ["android", "ios", "mweb"]}}},
-            {"extractor_args": {"youtube": {"player_client": ["ios", "android"]}}},
-            {"extractor_args": {"youtube": {"player_client": ["android"]}}},
-            {"extractor_args": {"youtube": {"player_client": ["tv", "web_embedded", "android", "ios"]}}},
-            {"extractor_args": {"youtube": {"player_client": ["visionos", "android_vr", "web"]}}},
-            {"extractor_args": {"youtube": {"player_client": ["web"]}}},
-            {}
-        ]
+        # 1. Primary attempt with standard shared options
+        try:
+            opts = self.build_shared_ydl_opts(extra_opts={"skip_download": True}, is_download=False, cookies=cookies)
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+        except Exception as first_err:
+            last_error = first_err
+            # Requirement 4: On a bot/sign-in error ONLY, retry with player_client ["tv", "web_safari"], then ["android", "ios"]
+            if not is_bot_or_sign_in_error(first_err):
+                logger.error(f"[OmniExtract] Extraction failed (non-bot error): {first_err}", exc_info=True)
+                raise first_err
 
-        for cfg in candidate_configs:
+            logger.warning(f"[OmniExtract] YouTube bot/sign-in error encountered for {url}. Retrying with player_client ['tv', 'web_safari']...")
             try:
-                extra = {**cfg, "skip_download": True}
-                if cookies:
-                    extra["cookies"] = cookies
-                opts = self.get_ydl_options(extra, is_download=False)
-                with yt_dlp.YoutubeDL(opts) as ydl:
+                opts_retry1 = self.build_shared_ydl_opts(
+                    extra_opts={"skip_download": True},
+                    is_download=False,
+                    player_clients=["tv", "web_safari"],
+                    cookies=cookies
+                )
+                with yt_dlp.YoutubeDL(opts_retry1) as ydl:
                     info = ydl.extract_info(url, download=False)
-                if info:
-                    break
-            except Exception as e:
-                last_error = e
-                continue
+            except Exception as retry1_err:
+                last_error = retry1_err
+                if not is_bot_or_sign_in_error(retry1_err):
+                    logger.error(f"[OmniExtract] Retry 1 failed (non-bot error): {retry1_err}", exc_info=True)
+                    raise retry1_err
+
+                logger.warning(f"[OmniExtract] YouTube bot error persisted. Retrying with player_client ['android', 'ios']...")
+                try:
+                    opts_retry2 = self.build_shared_ydl_opts(
+                        extra_opts={"skip_download": True},
+                        is_download=False,
+                        player_clients=["android", "ios"],
+                        cookies=cookies
+                    )
+                    with yt_dlp.YoutubeDL(opts_retry2) as ydl:
+                        info = ydl.extract_info(url, download=False)
+                except Exception as retry2_err:
+                    last_error = retry2_err
+                    logger.error(f"[OmniExtract] All bot retries exhausted for {url}: {retry2_err}", exc_info=True)
+                    raise retry2_err
 
         if not info:
             raise ValueError(f"Could not extract video from URL: {str(last_error or 'No media info returned')}")
@@ -530,13 +647,38 @@ class UniversalVideoExtractor:
             "outtmpl": output_path,
             "merge_output_format": "mp4",
         }
-        if cookies:
-            extra["cookies"] = cookies
 
-        ydl_opts = self.get_ydl_options(extra, is_download=True)
+        def run_video_dl(player_clients=None):
+            ydl_opts = self.build_shared_ydl_opts(
+                extra_opts=extra,
+                is_download=True,
+                player_clients=player_clients,
+                cookies=cookies
+            )
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+        try:
+            run_video_dl(player_clients=None)
+        except Exception as first_dl_err:
+            if not is_bot_or_sign_in_error(first_dl_err):
+                logger.error(f"[OmniExtract] Video download error: {first_dl_err}", exc_info=True)
+                raise first_dl_err
+
+            logger.warning(f"[OmniExtract] Bot error on video download for {url}. Retrying with ['tv', 'web_safari']...")
+            try:
+                run_video_dl(player_clients=["tv", "web_safari"])
+            except Exception as retry1_err:
+                if not is_bot_or_sign_in_error(retry1_err):
+                    logger.error(f"[OmniExtract] Video download retry 1 error: {retry1_err}", exc_info=True)
+                    raise retry1_err
+
+                logger.warning(f"[OmniExtract] Bot error persisted on video download. Retrying with ['android', 'ios']...")
+                try:
+                    run_video_dl(player_clients=["android", "ios"])
+                except Exception as retry2_err:
+                    logger.error(f"[OmniExtract] All bot retries exhausted on video download: {retry2_err}", exc_info=True)
+                    raise retry2_err
 
         # Find the actual downloaded file in the directory
         parent_dir = os.path.dirname(output_path)
@@ -578,13 +720,38 @@ class UniversalVideoExtractor:
             "outtmpl": output_path,
             "postprocessors": [postprocessor]
         }
-        if cookies:
-            extra["cookies"] = cookies
 
-        ydl_opts = self.get_ydl_options(extra, is_download=True)
+        def run_audio_dl(player_clients=None):
+            ydl_opts = self.build_shared_ydl_opts(
+                extra_opts=extra,
+                is_download=True,
+                player_clients=player_clients,
+                cookies=cookies
+            )
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+        try:
+            run_audio_dl(player_clients=None)
+        except Exception as first_dl_err:
+            if not is_bot_or_sign_in_error(first_dl_err):
+                logger.error(f"[OmniExtract] Audio download error: {first_dl_err}", exc_info=True)
+                raise first_dl_err
+
+            logger.warning(f"[OmniExtract] Bot error on audio download for {url}. Retrying with ['tv', 'web_safari']...")
+            try:
+                run_audio_dl(player_clients=["tv", "web_safari"])
+            except Exception as retry1_err:
+                if not is_bot_or_sign_in_error(retry1_err):
+                    logger.error(f"[OmniExtract] Audio download retry 1 error: {retry1_err}", exc_info=True)
+                    raise retry1_err
+
+                logger.warning(f"[OmniExtract] Bot error persisted on audio download. Retrying with ['android', 'ios']...")
+                try:
+                    run_audio_dl(player_clients=["android", "ios"])
+                except Exception as retry2_err:
+                    logger.error(f"[OmniExtract] All bot retries exhausted on audio download: {retry2_err}", exc_info=True)
+                    raise retry2_err
 
         parent_dir = os.path.dirname(output_path)
         target_ext = f".{clean_format}"
@@ -597,3 +764,4 @@ class UniversalVideoExtractor:
                 return os.path.join(parent_dir, all_non_parts[0])
 
         return output_path
+

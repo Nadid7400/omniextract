@@ -29,3 +29,8 @@ extracted_novel/
 compiled_test.txt
 .playwright-mcp/
 
+# YouTube & Platform Authentication Cookies
+cookies.txt
+*cookies*.txt
+omniextract_*_cookie*.txt
+*.cookie

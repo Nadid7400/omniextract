@@ -383,10 +383,22 @@ document.addEventListener('DOMContentLoaded', () => {
       avatarFallback.textContent = '▶';
     }
 
-    // Quick download buttons (using clean /api/download endpoint)
+    // Quick download buttons (using clean /api/download endpoint with cookies)
+    const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
+    const cookieParam = savedCookies ? `&cookies=${encodeURIComponent(savedCookies)}` : '';
     const safeTitle = encodeURIComponent((data.title || 'video').substring(0, 50));
-    btnQuickDownloadBest.href = `/api/download?url=${encodeURIComponent(data.url)}&type=video&quality=best&title=${safeTitle}`;
-    btnQuickDownloadAudio.href = `/api/download?url=${encodeURIComponent(data.url)}&type=audio&format=mp3&bitrate=320&title=${safeTitle}`;
+    const bestDlUrl = `/api/download?url=${encodeURIComponent(data.url)}&type=video&quality=best&title=${safeTitle}${cookieParam}`;
+    const audioDlUrl = `/api/download?url=${encodeURIComponent(data.url)}&type=audio&format=mp3&bitrate=320&title=${safeTitle}${cookieParam}`;
+    btnQuickDownloadBest.href = bestDlUrl;
+    btnQuickDownloadAudio.href = audioDlUrl;
+    btnQuickDownloadBest.onclick = (e) => {
+      e.preventDefault();
+      startMediaDownload(bestDlUrl, `${data.title || 'video'}.mp4`);
+    };
+    btnQuickDownloadAudio.onclick = (e) => {
+      e.preventDefault();
+      startMediaDownload(audioDlUrl, `${data.title || 'audio'}.mp3`);
+    };
 
     // Render Video Formats Tab
     renderVideoFormats(data);
@@ -497,6 +509,70 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // -------------------------------------------------------------
+  // Robust Universal Media Downloader with Live Progress & Error Handling
+  // -------------------------------------------------------------
+  async function startMediaDownload(downloadUrl, mediaName = 'media') {
+    hideAlert();
+    showToast(`⚡ Server is preparing ${mediaName}... Please wait!`, 'info');
+
+    // Visual feedback on button
+    btnLiveDownload.disabled = true;
+    liveDownloadSpinner.classList.remove('hidden');
+    liveDownloadLabel.textContent = 'Server converting...';
+
+    try {
+      const response = await fetch(downloadUrl);
+
+      if (!response.ok) {
+        let errorMsg = 'Download failed on server.';
+        try {
+          const errJson = await response.json();
+          errorMsg = errJson.detail || errJson.error || errorMsg;
+        } catch {
+          errorMsg = await response.text() || errorMsg;
+        }
+        throw new Error(errorMsg);
+      }
+
+      liveDownloadLabel.textContent = 'Receiving file...';
+      const blob = await response.blob();
+
+      // Extract filename from Content-Disposition header if available
+      let outFileName = mediaName;
+      const disposition = response.headers.get('content-disposition');
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (match && match[1]) {
+          outFileName = match[1].replace(/['"]/g, '').trim();
+        }
+      }
+
+      // Create blob URL and trigger clean single download
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = outFileName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        a.remove();
+        window.URL.revokeObjectURL(blobUrl);
+      }, 1000);
+
+      showToast(`✅ ${outFileName} downloaded successfully!`, 'success');
+
+    } catch (err) {
+      console.error('Download error:', err);
+      showAlert(`Download Error: ${err.message}`, 'error');
+      showToast(`Download failed: ${err.message}`, 'error');
+    } finally {
+      btnLiveDownload.disabled = false;
+      liveDownloadSpinner.classList.add('hidden');
+      updateLiveDownloadButtonText();
+    }
+  }
+
   // Clean Download Trigger Execution
   btnLiveDownload.addEventListener('click', () => triggerLiveDownload());
 
@@ -511,49 +587,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
     const cookieParam = savedCookies ? `&cookies=${encodeURIComponent(savedCookies)}` : '';
     let downloadUrl = '';
+    let targetName = '';
 
     if (currentMediaMode === 'video') {
       const quality = selectVideoResolution.value || 'best';
       downloadUrl = `/api/download?url=${encodeURIComponent(currentExtractionData.url)}&type=video&quality=${quality}&title=${safeTitle}${cookieParam}`;
+      targetName = `${rawTitle}.mp4`;
     } else {
       const val = selectAudioFormat.value || 'mp3:320';
       const [format, bitrate] = val.split(':');
       downloadUrl = `/api/download?url=${encodeURIComponent(currentExtractionData.url)}&type=audio&format=${format}&bitrate=${bitrate}&title=${safeTitle}${cookieParam}`;
+      targetName = `${rawTitle}.${format || 'mp3'}`;
     }
 
-    // Visual feedback on button
-    btnLiveDownload.disabled = true;
-    liveDownloadSpinner.classList.remove('hidden');
-    const originalText = liveDownloadLabel.textContent;
-    liveDownloadLabel.textContent = 'Server processing...';
-
-    showToast(`⚡ Server is converting ${currentMediaMode === 'video' ? 'video' : 'audio'}. Your download will pop up shortly!`);
-
-    // 1. Trigger via hidden iframe (most reliable for file downloads without page disruption)
-    const dlFrame = document.createElement('iframe');
-    dlFrame.style.display = 'none';
-    dlFrame.src = downloadUrl;
-    document.body.appendChild(dlFrame);
-
-    // 2. Also trigger via anchor download
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.setAttribute('download', '');
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => link.remove(), 5000);
-
-    // Restore button state after reasonable time
-    setTimeout(() => {
-      btnLiveDownload.disabled = false;
-      liveDownloadSpinner.classList.add('hidden');
-      liveDownloadLabel.textContent = originalText;
-    }, 6000);
-
-    setTimeout(() => {
-      dlFrame.remove();
-    }, 120000);
+    startMediaDownload(downloadUrl, targetName);
   }
 
   // -------------------------------------------------------------
@@ -563,6 +610,8 @@ document.addEventListener('DOMContentLoaded', () => {
     videoFormatsGrid.innerHTML = '';
     const formats = data.video_downloads || [];
     const safeTitle = encodeURIComponent((data.title || 'video').substring(0, 60));
+    const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
+    const cookieParam = savedCookies ? `&cookies=${encodeURIComponent(savedCookies)}` : '';
 
     if (formats.length === 0) {
       videoFormatsGrid.innerHTML = `<p class="empty-state">No direct video streams discovered. Try downloading best quality directly.</p>`;
@@ -574,7 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
       card.className = `format-card ${f.is_best ? 'best-card' : ''}`;
 
       const resBadgeClass = f.is_best ? 'format-pill pill-best' : 'format-pill';
-      const downloadLink = `/api/download?url=${encodeURIComponent(data.url)}&type=video&quality=${f.quality}&title=${safeTitle}`;
+      const downloadLink = `/api/download?url=${encodeURIComponent(data.url)}&type=video&quality=${f.quality}&title=${safeTitle}${cookieParam}`;
 
       card.innerHTML = `
         <div>
@@ -588,16 +637,23 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
         <div>
-          <a href="${downloadLink}" class="btn-format-download" download target="_blank">
+          <button type="button" class="btn-format-download">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
             <span>Download ${f.resolution}</span>
-          </a>
+          </button>
         </div>
       `;
+
+      const btnDl = card.querySelector('.btn-format-download');
+      btnDl.addEventListener('click', (e) => {
+        e.preventDefault();
+        startMediaDownload(downloadLink, `${data.title || 'video'}_${f.quality}p.mp4`);
+      });
+
       videoFormatsGrid.appendChild(card);
     });
   }
@@ -609,6 +665,8 @@ document.addEventListener('DOMContentLoaded', () => {
     audioFormatsGrid.innerHTML = '';
     const audios = data.audio_downloads || [];
     const safeTitle = encodeURIComponent((data.title || 'audio').substring(0, 60));
+    const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
+    const cookieParam = savedCookies ? `&cookies=${encodeURIComponent(savedCookies)}` : '';
 
     audios.forEach(a => {
       const card = document.createElement('div');
@@ -616,7 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const codec = a.codec || 'mp3';
       const bitrate = a.bitrate || '320';
-      const downloadLink = `/api/download?url=${encodeURIComponent(data.url)}&type=audio&format=${codec}&bitrate=${bitrate}&title=${safeTitle}`;
+      const downloadLink = `/api/download?url=${encodeURIComponent(data.url)}&type=audio&format=${codec}&bitrate=${bitrate}&title=${safeTitle}${cookieParam}`;
 
       card.innerHTML = `
         <div>
@@ -631,16 +689,23 @@ document.addEventListener('DOMContentLoaded', () => {
           ${a.desc ? `<p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">${a.desc}</p>` : ''}
         </div>
         <div>
-          <a href="${downloadLink}" class="btn-format-download btn-audio" download target="_blank">
+          <button type="button" class="btn-format-download btn-audio">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 18V5l12-2v13"></path>
               <circle cx="6" cy="18" r="3"></circle>
               <circle cx="18" cy="16" r="3"></circle>
             </svg>
             <span>Download ${a.badge}</span>
-          </a>
+          </button>
         </div>
       `;
+
+      const btnDl = card.querySelector('.btn-format-download');
+      btnDl.addEventListener('click', (e) => {
+        e.preventDefault();
+        startMediaDownload(downloadLink, `${data.title || 'audio'}_${bitrate}k.${codec}`);
+      });
+
       audioFormatsGrid.appendChild(card);
     });
   }
@@ -727,14 +792,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const results = batchData.results || [];
     badgeBatchCount.textContent = `${results.length} Videos Extracted`;
     batchChaptersList.innerHTML = '';
+    const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
+    const cookieParam = savedCookies ? `&cookies=${encodeURIComponent(savedCookies)}` : '';
 
     results.forEach((item, idx) => {
       const card = document.createElement('div');
       card.className = 'chapter-card';
 
       const safeTitle = encodeURIComponent((item.title || `video_${idx+1}`).substring(0, 50));
-      const downloadVid = `/api/download?url=${encodeURIComponent(item.url)}&type=video&quality=best&title=${safeTitle}`;
-      const downloadAud = `/api/download?url=${encodeURIComponent(item.url)}&type=audio&format=mp3&bitrate=320&title=${safeTitle}`;
+      const downloadVid = `/api/download?url=${encodeURIComponent(item.url)}&type=video&quality=best&title=${safeTitle}${cookieParam}`;
+      const downloadAud = `/api/download?url=${encodeURIComponent(item.url)}&type=audio&format=mp3&bitrate=320&title=${safeTitle}${cookieParam}`;
 
       card.innerHTML = `
         <div class="chapter-header" style="cursor:default;">
@@ -744,11 +811,21 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="format-pill pill-best" style="margin-left:8px;">${item.max_resolution || 'HD'}</span>
           </div>
           <div class="card-action-btns">
-            <a href="${downloadVid}" class="btn-primary-sm" style="text-decoration:none;" download>Download MP4</a>
-            <a href="${downloadAud}" class="btn-secondary-sm" style="text-decoration:none;" download>MP3 320k</a>
+            <button type="button" class="btn-primary-sm btn-batch-dl-vid">Download MP4</button>
+            <button type="button" class="btn-secondary-sm btn-batch-dl-aud">MP3 320k</button>
           </div>
         </div>
       `;
+
+      card.querySelector('.btn-batch-dl-vid').addEventListener('click', (e) => {
+        e.preventDefault();
+        startMediaDownload(downloadVid, `${item.title || `video_${idx+1}`}.mp4`);
+      });
+      card.querySelector('.btn-batch-dl-aud').addEventListener('click', (e) => {
+        e.preventDefault();
+        startMediaDownload(downloadAud, `${item.title || `audio_${idx+1}`}.mp3`);
+      });
+
       batchChaptersList.appendChild(card);
     });
   }
@@ -993,7 +1070,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function showAlert(msg, type = 'error') {
     alertBanner.className = `alert-banner ${type}`;
     let html = escapeHtml(msg).replace(/\n/g, '<br>');
-    if (msg.includes('YouTube is blocking') || msg.includes('Sign in to confirm') || msg.includes('Cookies')) {
+    const lower = (msg || '').toLowerCase();
+    if (lower.includes('blocked this request') || lower.includes('bot verification') || lower.includes('sign in to confirm') || lower.includes('cookies') || lower.includes('age-restricted')) {
       html += `<div style="margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
         <button type="button" class="btn-primary-sm" onclick="document.getElementById('btn-show-cookies').click()">Open Cookies Settings</button>
         <a href="http://localhost:8000" target="_blank" class="btn-secondary-sm" style="text-decoration:none;">Open Local Instance</a>
@@ -1001,6 +1079,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     alertBanner.innerHTML = html;
     alertBanner.classList.remove('hidden');
+    alertBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function hideAlert() {

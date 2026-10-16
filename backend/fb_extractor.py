@@ -1505,9 +1505,10 @@ class FacebookExtractor:
 
     def _parse_with_ytdlp(self, url: str, result: Dict[str, Any]):
         """Use yt-dlp to extract high-quality video formats, thumbnails, and metadata."""
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
+        from .video_extractor import UniversalVideoExtractor
+        extractor = UniversalVideoExtractor()
+
+        extra_fb_opts: Dict[str, Any] = {
             'skip_download': True,
             'extract_flat': False,
             'socket_timeout': self.timeout,
@@ -1525,11 +1526,13 @@ class FacebookExtractor:
                 tf.write('\n'.join(cookie_lines))
                 tf.close()
                 cookie_file_path = tf.name
-                ydl_opts['cookiefile'] = cookie_file_path
+                extra_fb_opts['cookiefile'] = cookie_file_path
             except Exception:
                 pass
             cookie_header = '; '.join(f'{k}={v}' for k, v in self._auth_cookies.items())
-            ydl_opts['http_headers'] = {'Cookie': cookie_header}
+            extra_fb_opts['http_headers'] = {'Cookie': cookie_header}
+
+        ydl_opts = extractor.build_shared_ydl_opts(extra_opts=extra_fb_opts, is_download=False)
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:

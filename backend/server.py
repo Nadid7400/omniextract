@@ -28,7 +28,17 @@ from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from backend.video_extractor import UniversalVideoExtractor, detect_platform, format_duration, format_filesize
+import logging
+from backend.video_extractor import (
+    UniversalVideoExtractor,
+    detect_platform,
+    format_duration,
+    format_filesize,
+    classify_extraction_error,
+    is_bot_or_sign_in_error
+)
+
+logger = logging.getLogger("omniextract.server")
 
 # Optional fallback for non-video Facebook posts/albums
 try:
@@ -227,7 +237,8 @@ async def process_video_info(url: str, cookies: Optional[str] = None) -> Dict[st
             data["text"] = "\n".join(text_parts)
             return sanitize_for_json(data)
     except Exception as e:
-        vid_err = str(e)
+        logger.error(f"[OmniExtract] Video info extraction error for {url}: {e}", exc_info=True)
+        vid_err = classify_extraction_error(e)
 
     # 2. Secondary Engine: Facebook Extractor fallback (for photos / albums / posts)
     if fb_extractor and ("facebook.com" in url or "fb.watch" in url):
@@ -249,25 +260,12 @@ async def process_video_info(url: str, cookies: Optional[str] = None) -> Dict[st
                         vid["download_url"] = f"/api/download?direct_url={encoded_vid}&filename=video_{idx+1}.mp4"
 
                 return sanitize_for_json(data)
-        except Exception:
-            pass
-
-    # Provide clear, helpful error for YouTube cloud datacenter bot check
-    err_str = str(vid_err or "")
-    if ("confirm you" in err_str and "bot" in err_str) or "Sign in to confirm" in err_str or "cookies-from-browser" in err_str:
-        friendly_msg = (
-            "YouTube is blocking requests from cloud datacenter servers (Render/AWS bot protection).\n\n"
-            "To download this YouTube video:\n"
-            "1. Run Omni Extractor locally on your PC at http://localhost:8000 (your home network IP is not blocked).\n"
-            "2. Or click the 'Cookies' button at the top right to paste your YouTube cookies.\n"
-            "3. Or add a cookies.txt file to Render as a Secret File (/etc/secrets/cookies.txt).\n\n"
-            "Note: Facebook, TikTok, Instagram, Twitter/X, and 1,500+ other platforms work in the cloud without cookies!"
-        )
-        raise HTTPException(status_code=400, detail=friendly_msg)
+        except Exception as fb_err:
+            logger.error(f"[OmniExtract] Facebook fallback error: {fb_err}", exc_info=True)
 
     raise HTTPException(
         status_code=400,
-        detail=f"Could not extract video from this link: {vid_err or 'Invalid or unsupported link'}"
+        detail=vid_err or "Could not extract media from this link. Please verify the URL and try again."
     )
 
 @app.get("/api/info")
@@ -400,7 +398,9 @@ async def download_media(
 
     except Exception as e:
         cleanup_temp_dir(temp_dir)
-        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+        logger.error(f"[OmniExtract] Download error for {url}: {e}", exc_info=True)
+        friendly_msg = classify_extraction_error(e)
+        raise HTTPException(status_code=400, detail=friendly_msg)
 
 # Backward-compatible download aliases
 @app.get("/api/download-video")
@@ -408,7 +408,8 @@ async def download_video_alias(
     background_tasks: BackgroundTasks,
     url: str = Query(...),
     quality: str = Query("best"),
-    title: Optional[str] = Query("video")
+    title: Optional[str] = Query("video"),
+    cookies: Optional[str] = Query(None)
 ):
     """Legacy alias for /api/download?type=video."""
     return await download_media(
@@ -416,7 +417,8 @@ async def download_video_alias(
         url=url,
         type="video",
         quality=quality,
-        title=title
+        title=title,
+        cookies=cookies
     )
 
 @app.get("/api/download-audio")
@@ -424,7 +426,8 @@ async def download_audio_alias(
     background_tasks: BackgroundTasks,
     url: str = Query(...),
     bitrate: str = Query("320"),
-    title: Optional[str] = Query("audio")
+    title: Optional[str] = Query("audio"),
+    cookies: Optional[str] = Query(None)
 ):
     """Legacy alias for /api/download?type=audio&format=mp3."""
     return await download_media(
@@ -433,7 +436,8 @@ async def download_audio_alias(
         type="audio",
         format="mp3",
         bitrate=bitrate,
-        title=title
+        title=title,
+        cookies=cookies
     )
 
 @app.post("/api/extract-batch")
@@ -455,15 +459,16 @@ async def extract_batch(req: BatchExtractRequest):
     results = []
     for idx, u in enumerate(urls_to_process, 1):
         try:
-            item_data = await asyncio.to_thread(video_extractor.extract_info, u)
+            item_data = await asyncio.to_thread(video_extractor.extract_info, u, cookies=req.cookies)
             item_data["index"] = idx
             results.append(item_data)
         except Exception as e:
+            logger.error(f"[OmniExtract] Batch extract error for {u}: {e}", exc_info=True)
             results.append({
                 "index": idx,
                 "url": u,
                 "success": False,
-                "error": str(e),
+                "error": classify_extraction_error(e),
                 "title": f"Video #{idx}",
                 "video_downloads": [],
                 "audio_downloads": []
