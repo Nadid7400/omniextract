@@ -100,16 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const publicUrlInput = document.getElementById('public-url-input');
   const lanUrlInput = document.getElementById('lan-url-input');
 
-  // Cookies Modal Elements
-  const btnShowCookies = document.getElementById('btn-show-cookies');
-  const cookiesModal = document.getElementById('cookies-modal');
-  const btnCloseCookies = document.getElementById('btn-close-cookies');
-  const btnCancelCookies = document.getElementById('btn-cancel-cookies');
-  const btnSaveCookies = document.getElementById('btn-save-cookies');
-  const btnClearCookies = document.getElementById('btn-clear-cookies');
-  const cookiesTextarea = document.getElementById('cookies-textarea');
-  const cookiesStatusLabel = document.getElementById('cookies-status-label');
-  const cookieStatusDot = document.getElementById('cookie-status-dot');
+
 
   // Lightbox Elements
   const lightboxModal = document.getElementById('lightbox-modal');
@@ -125,7 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize
   updateHistoryCounter();
   loadNetworkInfo();
-  updateCookieUI();
 
   // Mode Switchers
   btnModeSingle.addEventListener('click', () => setMode('single'));
@@ -252,22 +242,16 @@ document.addEventListener('DOMContentLoaded', () => {
     batchResultsZone.classList.add('hidden');
 
     try {
-      const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
-
-      // Call primary /api/info POST endpoint with cookies if present
+      // Call primary /api/info POST endpoint
       let response = await fetch('/api/info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, cookies: savedCookies })
+        body: JSON.stringify({ url })
       });
 
       if (!response.ok) {
         // Fallback to GET
-        let getUrl = `/api/info?url=${encodeURIComponent(url)}`;
-        if (savedCookies) {
-          getUrl += `&cookies=${encodeURIComponent(savedCookies)}`;
-        }
-        response = await fetch(getUrl);
+        response = await fetch(`/api/info?url=${encodeURIComponent(url)}`);
       }
 
       const data = await response.json();
@@ -383,12 +367,10 @@ document.addEventListener('DOMContentLoaded', () => {
       avatarFallback.textContent = '▶';
     }
 
-    // Quick download buttons (using clean /api/download endpoint with cookies)
-    const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
-    const cookieParam = savedCookies ? `&cookies=${encodeURIComponent(savedCookies)}` : '';
+    // Quick download buttons (using clean /api/download endpoint)
     const safeTitle = encodeURIComponent((data.title || 'video').substring(0, 50));
-    const bestDlUrl = `/api/download?url=${encodeURIComponent(data.url)}&type=video&quality=best&title=${safeTitle}${cookieParam}`;
-    const audioDlUrl = `/api/download?url=${encodeURIComponent(data.url)}&type=audio&format=mp3&bitrate=320&title=${safeTitle}${cookieParam}`;
+    const bestDlUrl = `/api/download?url=${encodeURIComponent(data.url)}&type=video&quality=best&title=${safeTitle}`;
+    const audioDlUrl = `/api/download?url=${encodeURIComponent(data.url)}&type=audio&format=mp3&bitrate=320&title=${safeTitle}`;
     btnQuickDownloadBest.href = bestDlUrl;
     btnQuickDownloadAudio.href = audioDlUrl;
     btnQuickDownloadBest.onclick = (e) => {
@@ -584,19 +566,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const rawTitle = currentExtractionData.title || 'media';
     const safeTitle = encodeURIComponent(rawTitle.substring(0, 60));
-    const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
-    const cookieParam = savedCookies ? `&cookies=${encodeURIComponent(savedCookies)}` : '';
     let downloadUrl = '';
     let targetName = '';
 
     if (currentMediaMode === 'video') {
       const quality = selectVideoResolution.value || 'best';
-      downloadUrl = `/api/download?url=${encodeURIComponent(currentExtractionData.url)}&type=video&quality=${quality}&title=${safeTitle}${cookieParam}`;
+      downloadUrl = `/api/download?url=${encodeURIComponent(currentExtractionData.url)}&type=video&quality=${quality}&title=${safeTitle}`;
       targetName = `${rawTitle}.mp4`;
     } else {
       const val = selectAudioFormat.value || 'mp3:320';
       const [format, bitrate] = val.split(':');
-      downloadUrl = `/api/download?url=${encodeURIComponent(currentExtractionData.url)}&type=audio&format=${format}&bitrate=${bitrate}&title=${safeTitle}${cookieParam}`;
+      downloadUrl = `/api/download?url=${encodeURIComponent(currentExtractionData.url)}&type=audio&format=${format}&bitrate=${bitrate}&title=${safeTitle}`;
       targetName = `${rawTitle}.${format || 'mp3'}`;
     }
 
@@ -609,21 +589,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderVideoFormats(data) {
     videoFormatsGrid.innerHTML = '';
     const formats = data.video_downloads || [];
-    const safeTitle = encodeURIComponent((data.title || 'video').substring(0, 60));
-    const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
-    const cookieParam = savedCookies ? `&cookies=${encodeURIComponent(savedCookies)}` : '';
-
-    if (formats.length === 0) {
-      videoFormatsGrid.innerHTML = `<p class="empty-state">No direct video streams discovered. Try downloading best quality directly.</p>`;
-      return;
-    }
-
     formats.forEach(f => {
       const card = document.createElement('div');
       card.className = `format-card ${f.is_best ? 'best-card' : ''}`;
 
       const resBadgeClass = f.is_best ? 'format-pill pill-best' : 'format-pill';
-      const downloadLink = `/api/download?url=${encodeURIComponent(data.url)}&type=video&quality=${f.quality}&title=${safeTitle}${cookieParam}`;
+      const downloadLink = `/api/download?url=${encodeURIComponent(data.url)}&type=video&quality=${f.quality}&title=${safeTitle}`;
 
       card.innerHTML = `
         <div>
@@ -664,17 +635,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderAudioFormats(data) {
     audioFormatsGrid.innerHTML = '';
     const audios = data.audio_downloads || [];
-    const safeTitle = encodeURIComponent((data.title || 'audio').substring(0, 60));
-    const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
-    const cookieParam = savedCookies ? `&cookies=${encodeURIComponent(savedCookies)}` : '';
-
     audios.forEach(a => {
       const card = document.createElement('div');
       card.className = `format-card ${a.is_best ? 'best-card' : ''}`;
 
       const codec = a.codec || 'mp3';
       const bitrate = a.bitrate || '320';
-      const downloadLink = `/api/download?url=${encodeURIComponent(data.url)}&type=audio&format=${codec}&bitrate=${bitrate}&title=${safeTitle}${cookieParam}`;
+      const downloadLink = `/api/download?url=${encodeURIComponent(data.url)}&type=audio&format=${codec}&bitrate=${bitrate}&title=${safeTitle}`;
 
       card.innerHTML = `
         <div>
@@ -792,16 +759,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const results = batchData.results || [];
     badgeBatchCount.textContent = `${results.length} Videos Extracted`;
     batchChaptersList.innerHTML = '';
-    const savedCookies = localStorage.getItem('omni_yt_cookies') || '';
-    const cookieParam = savedCookies ? `&cookies=${encodeURIComponent(savedCookies)}` : '';
 
     results.forEach((item, idx) => {
       const card = document.createElement('div');
       card.className = 'chapter-card';
 
       const safeTitle = encodeURIComponent((item.title || `video_${idx+1}`).substring(0, 50));
-      const downloadVid = `/api/download?url=${encodeURIComponent(item.url)}&type=video&quality=best&title=${safeTitle}${cookieParam}`;
-      const downloadAud = `/api/download?url=${encodeURIComponent(item.url)}&type=audio&format=mp3&bitrate=320&title=${safeTitle}${cookieParam}`;
+      const downloadVid = `/api/download?url=${encodeURIComponent(item.url)}&type=video&quality=best&title=${safeTitle}`;
+      const downloadAud = `/api/download?url=${encodeURIComponent(item.url)}&type=audio&format=mp3&bitrate=320&title=${safeTitle}`;
 
       card.innerHTML = `
         <div class="chapter-header" style="cursor:default;">
@@ -989,94 +954,9 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('LAN Wi-Fi URL copied to clipboard!');
   });
 
-  // Cookies Modal Events & Logic
-  function updateCookieUI() {
-    const saved = localStorage.getItem('omni_yt_cookies') || '';
-    if (saved.trim().length > 0) {
-      if (cookieStatusDot) {
-        cookieStatusDot.className = 'cookie-dot-active';
-        cookieStatusDot.title = 'YouTube cookies active';
-      }
-      if (cookiesStatusLabel) {
-        cookiesStatusLabel.className = 'badge-status-active';
-        cookiesStatusLabel.textContent = 'Active (Saved)';
-      }
-      if (cookiesTextarea && !cookiesTextarea.value) {
-        cookiesTextarea.value = saved;
-      }
-    } else {
-      if (cookieStatusDot) {
-        cookieStatusDot.className = 'cookie-dot-none';
-        cookieStatusDot.title = 'No cookies saved';
-      }
-      if (cookiesStatusLabel) {
-        cookiesStatusLabel.className = 'badge-status-none';
-        cookiesStatusLabel.textContent = 'No Cookies Set';
-      }
-    }
-  }
-
-  if (btnShowCookies) {
-    btnShowCookies.addEventListener('click', () => {
-      updateCookieUI();
-      cookiesModal.classList.remove('hidden');
-    });
-  }
-
-  if (btnCloseCookies) {
-    btnCloseCookies.addEventListener('click', () => cookiesModal.classList.add('hidden'));
-  }
-  if (btnCancelCookies) {
-    btnCancelCookies.addEventListener('click', () => cookiesModal.classList.add('hidden'));
-  }
-  if (cookiesModal) {
-    cookiesModal.addEventListener('click', (e) => {
-      if (e.target === cookiesModal) cookiesModal.classList.add('hidden');
-    });
-  }
-
-  if (btnSaveCookies) {
-    btnSaveCookies.addEventListener('click', () => {
-      const val = (cookiesTextarea.value || '').trim();
-      if (!val) {
-        localStorage.removeItem('omni_yt_cookies');
-        showToast('Cookies cleared', 'info');
-      } else {
-        localStorage.setItem('omni_yt_cookies', val);
-        showToast('Cookies saved successfully!', 'success');
-      }
-      updateCookieUI();
-      cookiesModal.classList.add('hidden');
-    });
-  }
-
-  if (btnClearCookies) {
-    btnClearCookies.addEventListener('click', () => {
-      localStorage.removeItem('omni_yt_cookies');
-      cookiesTextarea.value = '';
-      updateCookieUI();
-      showToast('Cookies cleared', 'info');
-    });
-  }
-
-  // Utilities
-  function extractUrlsFromText(text) {
-    if (!text) return [];
-    const matches = text.match(/https?:\/\/[^\s<>"'\)]+/g);
-    if (!matches) return [];
-    return [...new Set(matches.map(u => u.replace(/[.,;:)]+$/, '')))];
-  }
-
   function showAlert(msg, type = 'error') {
     alertBanner.className = `alert-banner ${type}`;
     let html = escapeHtml(msg).replace(/\n/g, '<br>');
-    const lower = (msg || '').toLowerCase();
-    if (lower.includes('blocked this request') || lower.includes('bot verification') || lower.includes('sign in to confirm') || lower.includes('cookies') || lower.includes('age-restricted')) {
-      html += `<div style="margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-        <button type="button" class="btn-primary-sm" onclick="document.getElementById('btn-show-cookies').click()">Open Cookies Settings</button>
-        <a href="http://localhost:8000" target="_blank" class="btn-secondary-sm" style="text-decoration:none;">Open Local Instance</a>
-      </div>`;
-    }
     alertBanner.innerHTML = html;
     alertBanner.classList.remove('hidden');
     alertBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
