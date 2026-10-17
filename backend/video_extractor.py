@@ -276,28 +276,17 @@ def resolve_and_copy_cookie_file(custom_cookies: Optional[str] = None) -> Option
         except Exception as e:
             logger.warning(f"Failed to write YT_COOKIES to temp file: {e}")
 
-    # 3. COOKIES_FILE (or YTDL_COOKIES) env var containing file path or repo root file
+    # 3. Optional COOKIES_FILE env var if explicitly configured
     cookie_path_env = os.getenv("COOKIES_FILE") or os.getenv("YTDL_COOKIES")
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    candidate_paths = [
-        cookie_path_env,
-        os.path.join(repo_root, "cookies.txt"),
-        os.path.join(os.getcwd(), "cookies.txt"),
-        "/etc/secrets/cookies.txt"
-    ]
+    if cookie_path_env and os.path.exists(cookie_path_env):
+        try:
+            target_path = os.path.join(writable_dir, "omniextract_active_cookies.txt")
+            shutil.copyfile(cookie_path_env, target_path)
+            return target_path
+        except Exception as e:
+            logger.warning(f"Could not copy cookie file '{cookie_path_env}': {e}")
+            return cookie_path_env
 
-    for c_path in candidate_paths:
-        if c_path and os.path.exists(c_path):
-            try:
-                target_path = os.path.join(writable_dir, "omniextract_active_cookies.txt")
-                shutil.copyfile(c_path, target_path)
-                logger.info(f"Loaded YouTube cookies from file: {c_path} (copied to writable path).")
-                return target_path
-            except Exception as e:
-                logger.warning(f"Could not copy cookie file '{c_path}' to writable location: {e}")
-                return c_path
-
-    logger.warning("No YouTube cookies configured via COOKIES_FILE or YT_COOKIES. Cloud requests may encounter bot verification.")
     return None
 
 class UniversalVideoExtractor:

@@ -1,9 +1,10 @@
 FROM python:3.11-slim
 
-# Install system dependencies (ffmpeg helps yt-dlp extract & merge video streams)
+# Install system dependencies (ffmpeg helps yt-dlp extract & merge video streams, nodejs provides JS runtime for deciphering)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
+    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

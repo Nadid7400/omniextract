@@ -1,0 +1,11 @@
+.git
+.gitignore
+cookies.txt
+*.pyc
+__pycache__
+.env
+.venv
+scratch/
+test_*.py
+test_*.mp4
+test_*.mp3
